@@ -5,24 +5,24 @@ ICS Earth Branch personal device and terminals.
 
 It gathers the data for three apps and writes one self-contained offline page:
 
-    ICS-OS/ics-os.html          (generated - do not edit by hand)
+    ics-os.html          (generated - do not edit by hand)
 
-  Hearth           internal mail     messages from writing/internal-communications
+  Hearth           internal mail     the messages in ICS-Writing/canon/internal-communications
                                      (parsed by build_mail.py in this folder)
-  ICS Cloud Drive  file explorer     the documents in writing/documents
+  ICS Cloud Drive  file explorer     the documents in ICS-Writing/canon/documents
   Folio            document viewer   the same documents, gated by clearance
 
 The page itself lives in os_template.html, os.css and os.js (same folder), which
-this script inlines. build_map.py calls build() at the end of every run, so the
-watcher and the git hook keep ICS-OS up to date.
-Standalone: python ICS-OS/build_os.py
+this script inlines. It reads the writing repo directly: a sibling folder called
+ICS-Writing, or the folder named in the ICS_WRITING environment variable.
+
+    python build_os.py
 
 Python 3 standard library only.
 """
 import datetime
 import json
 import re
-import sqlite3
 import sys
 import zlib
 from pathlib import Path
@@ -32,7 +32,7 @@ sys.path.insert(0, str(HERE))
 import build_mail as bm  # noqa: E402
 
 WRITING = bm.WRITING
-DOC_DIR = WRITING / "documents"
+DOC_DIR = WRITING / "canon" / "documents"
 OUT_PATH = HERE / "ics-os.html"
 
 OS_NAME = "ICS-OS"          # [PROPOSAL] names; change here and in writing/ICS_OS.md
@@ -80,6 +80,12 @@ DOCS = {
     41: (BOARD, F_RES), 42: (BOARD, F_OUT), 43: (PTKW, F_OPS), 44: (BOARD, F_GOV), 45: (OPEN, F_OPS),
     46: (PTKW, F_OPS), 47: (PTKW, F_RES), 48: (PTKW, F_RES), 49: (BOARD, F_RES), 50: (BOARD, F_GOV),
     51: (DIRECTOR, F_GOV),
+    # Plan System documents (2.52-2.62), [PROPOSAL]. Whole-file tier = the lowest layer anyone can open.
+    # 2.52, 2.55-2.58 and 2.62 open with a sheet that staff are handed; 2.53, 2.54, 2.59 and 2.61 open PTKW;
+    # 2.60 opens above the Branch Director.
+    52: (OPEN, F_OPS), 53: (PTKW, F_OPS), 54: (PTKW, F_OPS), 55: (OPEN, F_OPS), 56: (OPEN, F_OPS),
+    57: (OPEN, F_OPS), 58: (OPEN, F_OPS), 59: (PTKW, F_OPS), 60: (BOARD, F_OPS), 61: (PTKW, F_OPS),
+    62: (OPEN, F_OPS),
 }
 # Files that sit outside the tier ladder: only the listed accounts may open them.
 SPECIAL = {
@@ -96,6 +102,14 @@ FOLDER_ORDER = [F_REC, F_HND, F_OPS, F_GOV, F_RES, F_BRD, F_OUT]
 #   until_rule: a persisted tier ends at the next horizontal rule.
 RULE_RE = re.compile(r"^>?\s*-{3,}\s*$")
 LAYERS = {
+    # Plan System documents: a line "*[Access: ...]*" opens the sheet that follows it (segment_access).
+    # `default` is the tier of whatever comes before the first marker.
+    52: {"access": True, "default": OPEN}, 53: {"access": True, "default": PTKW},
+    54: {"access": True, "default": PTKW}, 55: {"access": True, "default": OPEN},
+    56: {"access": True, "default": OPEN}, 57: {"access": True, "default": OPEN},
+    58: {"access": True, "default": OPEN}, 59: {"access": True, "default": PTKW},
+    60: {"access": True, "default": BOARD}, 61: {"access": True, "default": PTKW},
+    62: {"access": True, "default": OPEN},
     24: {"block": [(r"^>\s*\*\*\[PTKW ANNOTATION", PTKW)]},
     25: {"block": [(r"^>\s*\*\*\[PTKW ANNOTATION", PTKW)]},
     29: {"reset": r"^###\s+TERM:",
@@ -116,6 +130,14 @@ LAYERS = {
 
 DREF_RE = re.compile(r"\b(Documents?|Doc\.)(\s+)(2\.\d{1,2})\b")
 
+# "*[Access: ABOVE BRANCH DIRECTOR - EOD Research Team.]*" and its relatives. The tier is the
+# label at the start; a long cover note may mention other tiers later in its text.
+ACCESS_RE = re.compile(r"^\*\[Access:\s*(.+?)\]?\*?\s*$")
+ACCESS_TIERS = [("GLOBAL", OPEN), ("ABOVE BRANCH DIRECTOR", BOARD), ("BRANCH DIRECTOR", DIRECTOR),
+                ("PTKW", PTKW), ("BOARD", BOARD)]
+# The author's closing note, e.g. "*[PROPOSAL] New file. Proposed: ...*".
+NOTE_RE = re.compile(r"^\*\[PROPOSAL\]")
+
 
 def block_end(lines, i):
     """Index just past the annotation block that starts at lines[i]."""
@@ -133,11 +155,50 @@ def block_end(lines, i):
     return j
 
 
+def access_tier(label):
+    up = label.upper()
+    return next(t for key, t in ACCESS_TIERS if up.startswith(key))
+
+
+def segment_access(lines, default):
+    """Documents 2.52-2.62. Each `*[Access: ...]*` line opens a sheet at that tier, and the sheet
+    runs to the next such line. Lines before the first marker are the sheet everyone is handed
+    (or the title above a cover marker) and are read at `default`."""
+    segs, cur = [], default
+
+    def add(t, ls):
+        if segs and segs[-1][0] == t:
+            segs[-1][1].extend(ls)
+        else:
+            segs.append((t, list(ls)))
+
+    for l in lines:
+        m = ACCESS_RE.match(l.strip())
+        if m:
+            cur = access_tier(m.group(1))
+        add(cur, [l])
+    return segs
+
+
+def split_notes(lines):
+    """Take the author's closing [PROPOSAL] note off the end of a document. Only the trailing run
+    counts (notes, blank lines and rules); a [PROPOSAL] line inside the text is left alone.
+    Returns (document lines, note lines)."""
+    k = len(lines)
+    while k > 0 and (not lines[k - 1].strip() or RULE_RE.match(lines[k - 1].strip())
+                     or NOTE_RE.match(lines[k - 1].strip())):
+        k -= 1
+    notes = [l for l in lines[k:] if NOTE_RE.match(l.strip())]
+    return lines[:k], notes
+
+
 def segment(no, lines):
     """Split a document into [(tier, [lines])] following LAYERS[no]."""
     cfg = LAYERS.get(no)
     if not cfg:
         return [(OPEN, lines)]
+    if cfg.get("access"):
+        return segment_access(lines, cfg["default"])
     segs, cur, until_rule, i, n = [], OPEN, False, 0, len(lines)
 
     def add(t, ls):
@@ -177,17 +238,20 @@ def link_docs(h):
 
 def collect_docs(known):
     out = []
+    missing = []
     for p in sorted(DOC_DIR.glob("2.*.md")):
         m = re.match(r"2\.(\d{1,2})\s*[\u2014\u2013-]\s*(.+)\.md$", p.name)
         if not m:
             continue
         no = int(m.group(1))
         if no not in DOCS:
-            continue  # [PROPOSAL] a new document needs a tier and folder in DOCS above
+            missing.append(p.name)  # a new document needs a tier and folder in DOCS above
+            continue
         tier, folder = DOCS[no]
         text = p.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff").replace("\r\n", "\n")
+        body_lines, note_lines = split_notes(text.split("\n"))
         segs = []
-        for t, ls in segment(no, text.split("\n")):
+        for t, ls in segment(no, body_lines):
             h = link_docs(bm.render(ls, known))
             if not h.strip():
                 continue
@@ -200,10 +264,11 @@ def collect_docs(known):
         out.append({
             "no": "2.%02d" % no, "title": m.group(2).strip(), "folder": folder, "tier": tier,
             "outside": no in (35, 39, 42, 49), "roles": roles, "segs": segs,
+            "notes": link_docs(bm.render(note_lines, known)) if note_lines else "",
             "size": st.st_size, "mtime": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M"),
-            "path": "documents/" + p.name,
+            "path": "canon/documents/" + p.name,
         })
-    return out
+    return out, missing
 
 
 def mirror_info(msg):
@@ -215,21 +280,28 @@ def mirror_info(msg):
     return {"views": 1 + zlib.crc32(msg["code"].encode()) % 6}
 
 
-def build(con=None, now=None, scan_id=None, out_path=OUT_PATH):
-    own = con is None
-    if own:
-        con = sqlite3.connect(str(bm.DB_PATH))
-    now = now or datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-    if scan_id is None:
-        scan_id = con.execute("SELECT max(id) FROM scans").fetchone()[0]
+def source_stamp():
+    """A short fingerprint of every source file, shown where the old build showed a scan number.
+    It changes whenever any message or document changes."""
+    h = 0
+    for f in sorted(list(bm.COMMS.glob("*/*.md")) + list(DOC_DIR.glob("2.*.md"))):
+        h = zlib.crc32(f.read_bytes(), h)
+    return "%08x" % h
 
-    people, msgs = bm.collect(con)
+
+def build(now=None, out_path=OUT_PATH):
+    now = now or datetime.datetime.now().astimezone().isoformat(timespec="seconds")
+    scan_id = source_stamp()
+
+    people, msgs = bm.collect()
     known = {m["code"] for m in msgs}
     for m in msgs:
         m["mirror"] = mirror_info(m)
     for m in msgs:
         m["body"] = link_docs(m["body"])
-    docs = collect_docs(known)
+    docs, missing = collect_docs(known)
+    if missing:
+        print("WARNING: not in the Cloud Drive until they have a line in DOCS: " + ", ".join(missing))
 
     payload = json.dumps({
         "os": {"name": OS_NAME, "version": OS_VERSION, "cloud": CLOUD_NAME, "docs": DOCS_NAME, "mail": bm.SYSTEM_NAME},
@@ -243,8 +315,6 @@ def build(con=None, now=None, scan_id=None, out_path=OUT_PATH):
     js = (HERE / "os.js").read_text(encoding="utf-8").replace("/*__DATA__*/null", payload)
     page = page.replace("/*__JS__*/", js.replace("</script", "<\\/script"))
     out_path.write_text(page, encoding="utf-8")
-    if own:
-        con.close()
     return len(msgs), len(docs)
 
 

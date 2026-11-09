@@ -2,9 +2,10 @@
 """
 build_mail.py - the message half of ICS-OS: data for Hearth, the ICS Earth Branch mail app.
 
-Reads every message the map already tracks (writing_map.db) plus the message
-files themselves, parses them, decides who may open each one, and returns plain
+Reads every message file in ICS-Writing/canon/internal-communications (series A, B, C
+and the Design Team's D), parses them, decides who may open each one, and returns plain
 data. build_os.py (same folder) calls collect() and writes the ICS-OS page.
+No database is needed: the message files are the only source.
 
 Also holds render() / inline(), the small markdown-to-HTML helpers that
 build_os.py reuses for documents.
@@ -13,15 +14,16 @@ Python 3 standard library only.
 """
 import html
 import json
+import os
 import re
-import sqlite3
 import datetime
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 ROOT = HERE.parent
-WRITING = ROOT / "writing"
-DB_PATH = ROOT / "writing-map" / "writing_map.db"
+# The writing repo: a sibling folder called ICS-Writing, or set ICS_WRITING to point elsewhere.
+WRITING = Path(os.environ.get("ICS_WRITING") or (ROOT / "ICS-Writing"))
+COMMS = WRITING / "canon" / "internal-communications"
 
 SYSTEM_NAME = "Hearth"  # [PROPOSAL] the in-world name; change here and in writing/HEARTH.md
 
@@ -156,7 +158,7 @@ def classify(status, name, headers):
     keys = {k.lower() for k, _ in headers}
     if s.startswith("NOT A MESSAGE"):
         return "notes"
-    if (re.search(r"\b(DRAFT|UNSENT|NOT SENT|NEVER SENT)\b", s) and not s.startswith(("SENT", "CCN SENT"))) \
+    if (re.search(r"\b(DRAFTS?|UNSENT|NOT SENT|NOT SUBMITTED|NEVER SENT)\b", s) and not s.startswith(("SENT", "CCN SENT"))) \
             or "(unsent)" in name.lower():
         return "drafts"
     if "SEALED" in s or "BOARD ACCESS" in s:
@@ -251,32 +253,93 @@ def short_date(cycle, quarter, day):
     return out
 
 
-def collect(con):
-    """Return (people, msgs): the mailbox directory and every message, ready for JSON."""
-    q = lambda sql, *a: con.execute(sql, a).fetchall()
+# --- in-world dates, ported from the old writing map's parse_msg_date ---
+KEYLINE = re.compile(r"^\*\*(Date|Timestamp|Sent|Action date|Status|Subject)[^*]*\*\*\s*(.*)$")
+PRIORITY = {"Date": 0, "Timestamp": 0, "Sent": 0, "Action date": 1, "Status": 2, "Subject": 3}
+CYCLE_RX = re.compile(r"Cycle\s+(\d{3})(?:\s*,?\s*Q([1-4]))?(?:[\s,\-\u2014\u2013]*Day\s+(\d+)(\s*post-[\w -]+)?)?")
+CLOCK_RX = re.compile(r"\b(\d{1,2}:\d{2})\b")
+MSG_RE = re.compile(r"(?<![\w-])([ABC])-(\d{2})(?![\w-])")
 
-    rows = q("""SELECT m.file_id, f.path, m.series, m.number, m.code, m.subject, m.from_raw, m.to_raw
-                FROM messages m JOIN files f ON f.id = m.file_id
-                WHERE f.status = 'present' ORDER BY m.series, m.number""")
-    dates = {r[0]: r[1:] for r in q("SELECT file_id, cycle, quarter, day, clock, raw FROM msg_dates")}
-    code_by_file = {r[0]: r[4] for r in rows}
-    known = set(code_by_file.values())
+
+def parse_msg_date(text):
+    """Header date if there is one; otherwise the latest 'Cycle NNN QN' in the first 60 lines.
+    Returns (cycle, quarter, day, clock, raw) or all None."""
+    lines = text.splitlines()
+    cands = []
+    for ln in lines[:16]:
+        m = KEYLINE.match(ln)
+        if m:
+            cands.append((PRIORITY[m.group(1)], m.group(2)))
+        elif re.match(r"^Cycle\s+\d{3}", ln.strip()):
+            cands.append((1, ln.strip()))
+    for _, s in sorted(cands, key=lambda c: c[0]):
+        m = CYCLE_RX.search(s)
+        if m:
+            clock = CLOCK_RX.search(s)
+            return (int(m.group(1)), int(m.group(2) or 0) or None, int(m.group(3)) if m.group(3) else None,
+                    clock.group(1) if clock else None, s.strip()[:90])
+    best = None
+    for ln in lines[:60]:
+        for m in re.finditer(r"Cycle\s+(\d{3})\s*,?\s*Q([1-4])", ln):
+            k = (int(m.group(1)), int(m.group(2)))
+            if best is None or k > best[0]:
+                best = (k, ln.strip())
+    if best:
+        return best[0][0], best[0][1], None, None, best[1][:90]
+    return None, None, None, None, None
+
+
+def message_files():
+    """Every message file as (code, series, number, path relative to canon/internal-communications)."""
+    out = []
+    for f in sorted(COMMS.glob("*/*.md")):
+        if f.parent.name == "design-team":
+            m = re.match(r"^(\d+)", f.stem)
+            if m:
+                out.append(("D-%02d" % int(m.group(1)), "D", int(m.group(1)), f))
+        else:
+            m = re.match(r"^([ABC])-(\d+)", f.stem)
+            if m:
+                out.append(("%s-%02d" % (m.group(1), int(m.group(2))), m.group(1), int(m.group(2)), f))
+    return sorted(out, key=lambda r: (r[1], r[2]))
+
+
+def title_from_name(stem):
+    """The words after the code in a file name, used when a message has no Subject line."""
+    t = re.sub(r"^(?:[ABC]-\d+|\d+)\s*[\u2014\u2013-]*\s*", "", stem).strip()
+    return t or stem
+
+
+def collect():
+    """Return (people, msgs): the mailbox directory and every message, ready for JSON."""
+    files = message_files()
+    known = {c for c, _, _, _ in files}
+    texts = {c: f.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff").replace("\r\n", "\n")
+             for c, _, _, f in files}
 
     links_out, links_in = {}, {}
-    for s, d in q("SELECT src_file, dst_file FROM refs WHERE ref_type IN ('message','path')"):
-        if s in code_by_file and d in code_by_file and s != d:
-            links_out.setdefault(code_by_file[s], set()).add(code_by_file[d])
-            links_in.setdefault(code_by_file[d], set()).add(code_by_file[s])
+    for code, text in texts.items():
+        for m in MSG_RE.finditer(text):
+            d = "%s-%s" % (m.group(1), m.group(2))
+            if d in known and d != code:
+                links_out.setdefault(code, set()).add(d)
+                links_in.setdefault(d, set()).add(code)
 
     msgs, people = [], {}
-    for fid, path, series, number, code, subject, frm, to in rows:
-        text = (WRITING / path).read_text(encoding="utf-8", errors="replace")
+    for code, series, number, fpath in files:
+        path = fpath.relative_to(WRITING).as_posix()
+        text = texts[code]
         banner, headers, body, meta = split_message(text)
         hd = {k.lower(): v for k, v in headers}
-        cycle, quarter, day, clock, raw = dates.get(fid, (None, None, None, None, None))
+        m_from = re.search(r"^\*\*From:\*\*\s*(.+)$", text, re.M)
+        m_to = re.search(r"^\*\*To:\*\*\s*(.+)$", text, re.M)
+        frm = m_from.group(1).strip() if m_from else None
+        to = m_to.group(1).strip() if m_to else None
+        subject = hd.get("subject") or title_from_name(fpath.stem)
+        cycle, quarter, day, clock, raw = parse_msg_date(text)
         status = hd.get("status", "")
-        folder = classify(status, Path(path).name, headers)
-        addr = " ; ".join(ADDR_RE.findall(text.replace("\r\n", "\n")))  # every From/To/Cc line, thread blocks included
+        folder = classify(status, fpath.name, headers)
+        addr = " ; ".join(ADDR_RE.findall(text))  # every From/To/Cc line, thread blocks included
         tier, roles = access(series, folder, status, addr, "", "")
         body_html = render(body, known)
         meta_html = render(meta, known)

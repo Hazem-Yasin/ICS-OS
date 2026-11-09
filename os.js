@@ -1206,6 +1206,7 @@ function folioMount(w, no) {
       '<div class="fo-main"><div class="fo-out" id="fout"></div><div class="fo-canvas" id="fcan"><div class="pg' + (author() ? " free" : "") + '" id="fpg"><div class="meta">' +
       '<span class="chip c-code">' + esc(d.no) + '</span><span class="chip c-tier">' + esc(TIERLBL(d)) + '</span><span class="chip c-tier">' + esc(d.folder) + "</span>" +
       '<span class="chip c-tier">Read only &middot; ICS Cloud</span></div><div class="rich">' + body + "</div>" +
+      (author() && d.notes ? '<div class="writer"><h5>Writer\'s notes</h5>' + d.notes + "</div>" : "") +
       (author() ? '<div class="path">' + esc(d.path) + "</div>" : "") + "</div></div></div></div>";
     const T = w.body, pg = $("#fpg", T);
     const hs = Array.from(pg.querySelectorAll(".rich h4")).filter(h => !h.closest(".red"));
