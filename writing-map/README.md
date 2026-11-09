@@ -1,4 +1,4 @@
-﻿# writing-map
+# writing-map
 
 A map of the writing repo (`ICS-Writing`): every file, how files reference each other, canon-rule checks, a timeline, a people graph, and a SQLite database behind it. Python 3 standard library only; the viewer works offline.
 
