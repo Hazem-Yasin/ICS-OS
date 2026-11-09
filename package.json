@@ -1,0 +1,19 @@
+{
+  "name": "ics-os",
+  "version": "0.1.0",
+  "description": "ICS-OS: In-world enterprise operating system for ICS — Rigged Sphere",
+  "main": "index.html",
+  "scripts": {
+    "start": "npx serve .",
+    "dev": "npx serve ."
+  },
+  "keywords": [
+    "ics-os",
+    "operating-system",
+    "retro-ui",
+    "aero-glass",
+    "web-audio"
+  ],
+  "author": "ICS Earth Branch",
+  "license": "UNLICENSED"
+}
