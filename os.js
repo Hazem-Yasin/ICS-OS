@@ -11,9 +11,10 @@ const ROLE = Object.fromEntries(D.roles.map(r => [r.id, r]));
 const PERSON = D.people || {};
 const DOC = Object.fromEntries(D.docs.map(d => [d.no, d]));
 const byCode = Object.fromEntries(D.msgs.map(m => [m.code, m]));
-const S = Object.assign({role: "", box: "", ar: false, muted: false, theme: "auto"}, JSON.parse(localStorage.getItem("icsos") || sessionStorage.getItem("icsos") || "{}"));
+const S = Object.assign({role: "", box: "", ar: false, muted: false, theme: "auto", skin: "classic"}, JSON.parse(localStorage.getItem("icsos") || sessionStorage.getItem("icsos") || "{}"));
 if (!ROLE[S.role]) S.role = "";
 if (S.theme && S.theme !== "auto") document.documentElement.dataset.theme = S.theme;
+if (S.skin === "aero") document.documentElement.dataset.skin = "aero";
 const save = () => {
   try {
     sessionStorage.setItem("icsos", JSON.stringify(S));
@@ -28,6 +29,12 @@ function applyTheme(themeId) {
   } else {
     delete document.documentElement.dataset.theme;
   }
+}
+function applySkin(skin) {
+  S.skin = skin === "aero" ? "aero" : "classic";
+  save();
+  if (S.skin === "aero") document.documentElement.dataset.skin = "aero";
+  else delete document.documentElement.dataset.skin;
 }
 const author = () => S.role === "all";
 const level = () => ROLE[S.role].level;
@@ -246,13 +253,23 @@ const THEMES = [
   {id: "luna", name: "Luna Blue (Early 2000s)", category: "Retro Computing", preview: ["#0055ea", "#f39c12", "#ece9d8"], desc: "Bright royal blue titlebars and warm silver-sand panels."},
   {id: "amber", name: "Amber CRT Phosphor", category: "Retro Terminals", preview: ["#ffb000", "#ff9900", "#120a00"], desc: "Monochrome glowing amber CRT workstation from 1989."},
   {id: "matrix", name: "Green Matrix CRT", category: "Retro Terminals", preview: ["#00ff66", "#33ff33", "#031203"], desc: "High-phosphor green mainframe terminal console."},
-  {id: "solar", name: "Solarized Workstation", category: "Specialty", preview: ["#002b36", "#b58900", "#fdf6e3"], desc: "Low-contrast precision palette for extended night shifts."}
+  {id: "solar", name: "Solarized Workstation", category: "Specialty", preview: ["#002b36", "#b58900", "#fdf6e3"], desc: "Low-contrast precision palette for extended night shifts."},
+  {id: "forest", name: "Evergreen Grove", category: "Nature", preview: ["#1e3a2a", "#c9a24c", "#eaf0e6"], desc: "Deep conifer green with brass trim on pale moss."},
+  {id: "ocean", name: "Deep Ocean", category: "Nature", preview: ["#0b3a53", "#2fb3c4", "#e4eff3"], desc: "Abyssal blue with a bright kelp-teal accent."},
+  {id: "sand", name: "Desert Sand", category: "Nature", preview: ["#6b3f1f", "#d08a3c", "#f4ead8"], desc: "Warm terracotta and amber on sun-bleached sand."},
+  {id: "rose", name: "Rosewood", category: "Corporate", preview: ["#5a1f2e", "#d3a35a", "#f5ebe8"], desc: "Oxblood and antique gold on blush paper."},
+  {id: "nord", name: "Nordic Frost", category: "Specialty", preview: ["#2e3b52", "#88c0d0", "#eceff4"], desc: "Cool polar blues with a pale ice accent."},
+  {id: "mint", name: "Clinic Mint", category: "Specialty", preview: ["#1f4f4a", "#4fbfa8", "#eaf5f2"], desc: "Clean sterile teal and mint, as in the Level 3 wellness suites."},
+  {id: "dusk", name: "Dusk Violet", category: "Dark", preview: ["#1a1330", "#b794f6", "#221a3d"], desc: "Dark indigo and violet for the night shift."},
+  {id: "slate", name: "Graphite Night", category: "Dark", preview: ["#14181f", "#5cc8ff", "#1c222c"], desc: "Near-black graphite with an electric blue accent."},
+  {id: "contrast", name: "High Contrast", category: "Accessibility", preview: ["#000000", "#ffd400", "#ffffff"], desc: "Black on white with yellow highlights for maximum legibility."}
 ];
 
 function openThemeDialog() {
   Sound.click();
   const m = $("#modal");
   let curPick = S.theme || "auto";
+  let curSkin = S.skin === "aero" ? "aero" : "classic";
 
   const renderSwatches = th => {
     return '<span class="os-theme-swatches">' +
@@ -301,6 +318,11 @@ function openThemeDialog() {
       '<div class="os-theme-listbox" id="theme-listbox">' +
         THEMES.map(getThemeItem).join("") +
       '</div>' +
+      '<div class="os-sidebar-label" style="margin:10px 0 4px;">Window Style:</div>' +
+      '<div class="os-skin-group" id="skin-group">' +
+        '<label class="os-skin-opt"><input type="radio" name="skin" value="classic"' + (curSkin === "classic" ? ' checked' : '') + '><span><b>Classic Workstation</b><small>Bevelled faces and sunken wells, as on the Log On screen.</small></span></label>' +
+        '<label class="os-skin-opt"><input type="radio" name="skin" value="aero"' + (curSkin === "aero" ? ' checked' : '') + '><span><b>Aero Glass</b><small>The earlier look: glossy title bars and ERP ribbon toolbars.</small></span></label>' +
+      '</div>' +
     '</div>' +
     '<div class="mf" style="display:flex;justify-content:space-between;align-items:center;padding:8px 16px 12px;">' +
       '<button class="os-90s-btn" type="button" id="th-reset">Auto (Role)</button>' +
@@ -334,9 +356,14 @@ function openThemeDialog() {
     updatePreview();
   };
 
+  m.querySelectorAll('input[name="skin"]').forEach(r => {
+    r.onchange = () => { Sound.click(); curSkin = r.value; };
+  });
+
   $("#th-ok").onclick = () => {
     Sound.boot();
     applyTheme(curPick);
+    applySkin(curSkin);
     m.hidden = true;
     if (document.body.dataset.phase === "desk") {
       drawTask();
