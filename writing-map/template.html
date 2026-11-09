@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ICS Rigged Sphere - Writing Map</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#0e1117;--panel:#161b22;--panel2:#1c2330;--bd:#2a3140;--tx:#d7dce4;--mu:#8b95a5;--ac:#4f9cf9;--ok:#4cc38a;--bad:#ef6f6f;--warn:#f2c14e}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:13px/1.5 -apple-system,"Segoe UI",system-ui,sans-serif}
+a{color:var(--ac);text-decoration:none;cursor:pointer}a:hover{text-decoration:underline}
+header{display:flex;align-items:center;gap:18px;padding:8px 16px;border-bottom:1px solid var(--bd);background:var(--panel);height:46px}
+header h1{font-size:15px;margin:0;font-weight:600;white-space:nowrap}
+header h1 span{color:var(--mu);font-weight:400}
+nav{display:flex;gap:2px;flex:1}
+nav button{background:none;border:0;color:var(--mu);padding:8px 12px;font:inherit;cursor:pointer;border-radius:6px}
+nav button:hover{color:var(--tx);background:var(--panel2)}
+nav button.on{color:#fff;background:var(--panel2);box-shadow:inset 0 -2px 0 var(--ac)}
+.meta{color:var(--mu);font-size:11px;white-space:nowrap}
+main{height:calc(100% - 46px);position:relative}
+section{display:none;height:100%;overflow:auto;padding:18px 22px}
+section.on{display:block}
+section.full{padding:0;overflow:hidden}
+h2{font-size:14px;margin:22px 0 8px;font-weight:600}
+h2:first-child{margin-top:0}
+h3{font-size:12px;margin:14px 0 6px;color:var(--mu);text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:8px}
+.card{background:var(--panel);border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
+.card b{display:block;font-size:22px;font-weight:600}
+.card span{color:var(--mu);font-size:11px}
+.box{background:var(--panel);border:1px solid var(--bd);border-radius:8px;padding:12px 14px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:1000px){.grid2{grid-template-columns:1fr}}
+table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:4px 8px;border-bottom:1px solid var(--bd);vertical-align:top}
+th{color:var(--mu);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+code,pre{font:12px/1.5 Consolas,"SFMono-Regular",monospace}
+pre{background:#0a0d12;border:1px solid var(--bd);border-radius:6px;padding:10px 12px;overflow:auto;margin:6px 0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:baseline}
+.bar{height:8px;border-radius:4px;display:inline-block;vertical-align:middle}
+.pill{display:inline-block;padding:0 7px;border-radius:9px;background:var(--panel2);border:1px solid var(--bd);font-size:11px;color:var(--mu);margin:1px 2px 1px 0}
+.pill.bad{color:var(--bad);border-color:#5a2a2a}.pill.ok{color:var(--ok)}.pill.warn{color:var(--warn)}
+.fl{display:inline-block;background:var(--panel2);border:1px solid var(--bd);border-radius:5px;padding:0 6px;margin:2px 3px 2px 0;color:var(--tx);font-size:12px}
+.fl:hover{border-color:var(--ac);text-decoration:none}
+input[type=text],input[type=search],select{background:#0a0d12;color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:5px 8px;font:inherit}
+input:focus,select:focus{outline:1px solid var(--ac)}
+.mu{color:var(--mu)}.sm{font-size:11px}
+/* graph */
+#gwrap{position:relative;height:100%}
+#gcv{width:100%;height:100%;display:block;cursor:grab}
+.ovl{position:absolute;background:rgba(22,27,34,.94);border:1px solid var(--bd);border-radius:8px;padding:10px 12px}
+#gctl{top:12px;left:12px;width:230px;max-height:calc(100% - 24px);overflow:auto}
+#gctl label{display:flex;align-items:center;gap:6px;cursor:pointer;padding:1px 0}
+#gdet{top:12px;right:12px;width:320px;max-height:calc(100% - 24px);overflow:auto}
+#gtip{position:fixed;pointer-events:none;background:#000d;border:1px solid var(--bd);border-radius:6px;padding:4px 8px;font-size:12px;display:none;z-index:9}
+/* erd */
+#erdwrap{overflow:auto;background:#0a0d12;border:1px solid var(--bd);border-radius:8px}
+#erdsvg text{font:12px Consolas,monospace;fill:var(--tx)}
+#erdsvg .th{font:600 13px -apple-system,"Segoe UI",sans-serif;fill:#fff}
+#erdsvg .cm{fill:var(--mu)}
+#erdsvg .tb{cursor:pointer}
+#erdsvg .tb:hover rect.bx{stroke:var(--ac)}
+#erdsvg .fk{fill:none;stroke:#556;stroke-width:1.3;opacity:.7}
+#erdsvg .fk.on{stroke:var(--ac);stroke-width:2.2;opacity:1}
+/* explorer */
+#ex{display:flex;height:100%}
+#exl{width:340px;border-right:1px solid var(--bd);display:flex;flex-direction:column;background:var(--panel)}
+#exl .top{padding:10px;border-bottom:1px solid var(--bd);display:grid;gap:6px}
+#exlist{overflow:auto;flex:1;padding:4px 0}
+#exlist .fd{padding:6px 12px 2px;color:var(--mu);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
+#exlist .it{padding:3px 12px 3px 18px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#exlist .it:hover{background:var(--panel2)}
+#exlist .it.on{background:var(--panel2);box-shadow:inset 2px 0 var(--ac)}
+#exd{flex:1;overflow:auto;padding:18px 24px}
+/* matrix */
+.mx td,.mx th{padding:0;border:1px solid var(--bg);text-align:center;font-size:11px}
+.mx td{width:44px;height:30px;cursor:default}
+.mx td.c{cursor:pointer}.mx td.c:hover{outline:2px solid #fff}
+.mx th.r{text-align:right;padding:0 8px;white-space:nowrap}
+.mx th.v{height:120px;vertical-align:bottom;position:relative}
+.mx th.v div{writing-mode:vertical-rl;transform:rotate(180deg);white-space:nowrap;padding:4px 0;margin:0 auto}
+.lst{max-height:360px;overflow:auto}
+details{margin:6px 0}summary{cursor:pointer;color:var(--mu)}
+.chg-a{color:var(--ok)}.chg-m{color:var(--warn)}.chg-d{color:var(--bad)}.chg-v{color:var(--ac)}
+nav{overflow-x:auto}nav button{white-space:nowrap;padding:8px 10px}
+.btn{background:var(--panel2);color:var(--tx);border:1px solid var(--bd);border-radius:6px;padding:4px 10px;font:inherit;cursor:pointer}.btn:hover{border-color:var(--ac)}
+.tl td,.tl th{border:1px solid var(--bd);padding:4px 6px;vertical-align:top;text-align:left}.tl th.lane{white-space:nowrap;color:var(--tx)}.tl .col{min-width:96px;color:var(--mu)}
+.diff{white-space:pre;overflow:auto;max-height:340px;font:12px/1.45 Consolas,monospace}.diff .a{color:var(--ok)}.diff .d{color:var(--bad)}.diff .h{color:var(--ac)}
+#psvg{background:#0a0d12;border:1px solid var(--bd);border-radius:8px;width:100%;height:auto;display:block}#psvg text{font:11px sans-serif;fill:#d7dce4;pointer-events:none}#psvg .nd{cursor:pointer}
+#pgrid{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:12px}@media(max-width:1100px){#pgrid{grid-template-columns:1fr}}
+.spark{display:block;margin-top:4px}label.meta{display:flex;align-items:center;gap:4px;cursor:pointer}
+</style>
+</head>
+<body>
+<header>
+  <h1>ICS &mdash; Rigged Sphere <span>/ Writing Map</span></h1>
+  <nav id="nav">
+<button data-tab="overview" class="on">Overview</button>
+    <button data-tab="graph">Graph</button>
+    <button data-tab="people">People</button>
+    <button data-tab="timeline">Timeline</button>
+    <button data-tab="coverage">Coverage</button>
+    <button data-tab="canon">Canon</button>
+    <button data-tab="health">Health</button>
+    <button data-tab="matrix">Matrix</button>
+    <button data-tab="explorer">Explorer</button>
+    <button data-tab="erd">Database ERD</button>
+    <button data-tab="export">Export</button>
+    <button data-tab="history">History</button>
+    <button data-tab="facts">Facts</button>
+  </nav>
+  <label class="meta" title="reload this page every 8 seconds (use with watch.py)"><input type="checkbox" id="ar"> auto-reload</label><div class="meta" id="hmeta"></div>
+</header>
+<main>
+  <section id="overview" class="on"></section>
+  <section id="graph" class="full"><div id="gwrap">
+    <canvas id="gcv"></canvas>
+    <div class="ovl" id="gctl"></div>
+    <div class="ovl" id="gdet"><span class="mu">Click a node to see its connections.<br>Scroll = zoom, drag background = pan, drag node = move.</span></div>
+  </div></section>
+  <section id="erd"></section>
+  <section id="explorer" class="full"><div id="ex">
+    <div id="exl"><div class="top">
+      <input type="search" id="exq" placeholder="Search title, path, code...">
+      <select id="exc"></select>
+    </div><div id="exlist"></div></div>
+    <div id="exd"><span class="mu">Pick a file on the left.</span></div>
+  </div></section>
+  <section id="matrix"></section>
+  <section id="health"></section>
+  <section id="people"></section>
+  <section id="timeline"></section>
+  <section id="coverage"></section>
+  <section id="canon"></section>
+  <section id="export"></section>
+  <section id="history"></section>
+  <section id="facts"></section>
+</main>
+<div id="gtip"></div>
+
+<script>
+const D=/*__DATA__*/null;
+"use strict";
+/* ---------- helpers ---------- */
+const $=(s,r)=>(r||document).querySelector(s);
+const esc=s=>String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const F=D.files, byId={}; F.forEach(f=>byId[f.id]=f);
+const cat=k=>D.cats[k]||{label:k,color:"#888"};
+const TYPE_COL={document:"#8e7cf8",message:"#f28c38",character:"#ef6f8e",level:"#3fc7b4",path:"#f2c14e",weapon:"#c7a27c",mention:"#6b7280"};
+const TYPE_LABEL={document:"Document refs (2.xx)",message:"Message refs (A/B/C-xx)",character:"Character refs (E-xxxxx)",path:"File path refs (.md)",weapon:"Weapon mentions",mention:"Character name mentions",level:"Level refs"};
+const outs={},ins={};
+F.forEach(f=>{outs[f.id]=[];ins[f.id]=[]});
+D.refs.forEach(r=>{if(outs[r[0]]&&ins[r[1]]){outs[r[0]].push(r);ins[r[1]].push(r)}});
+const unresBy={};D.unresolved.forEach(u=>(unresBy[u[0]]=unresBy[u[0]]||[]).push(u));
+const cmBy={};D.cm.forEach(c=>(cmBy[c[0]]=cmBy[c[0]]||[]).push(c));
+const conName={};D.concepts.forEach(c=>conName[c.id]=c.name);
+const peopleBy={};D.people.forEach(p=>peopleBy[p.id]=p);
+const msgBy={};D.msgs.forEach(m=>msgBy[m.f]=m);
+const charBy={};D.chars.forEach(c=>charBy[c.f]=c);
+const label=f=>f.c?(f.c+" "+(f.k==="message"||f.k==="document"||f.k==="character"?(f.t||""):"")).trim():(f.t||f.n);
+const short=(s,n)=>s.length>n?s.slice(0,n-1)+"\u2026":s;
+const fmt=n=>n==null?"":n.toLocaleString();
+const chip=f=>'<a class="fl" data-open="'+f.id+'" title="'+esc(f.p)+'"><span class="dot" style="background:'+cat(f.cat).color+'"></span>'+esc(short(label(f),46))+'</a>';
+const catDot=k=>'<span class="dot" style="background:'+cat(k).color+'"></span>'+esc(cat(k).label);
+const EXPLICIT=["document","message","character","path","weapon"];
+$("#hmeta").textContent="scan #"+D.meta.scan_id+(D.meta.commit?" @ "+D.meta.commit:"")+" \u00b7 "+D.meta.generated.replace("T"," ").slice(0,16);
+
+/* ---------- tabs ---------- */
+const inited={};
+function show(tab){
+  document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.tab===tab));
+  document.querySelectorAll("main>section").forEach(s=>s.classList.toggle("on",s.id===tab));
+  setHash(tab);
+  if(!inited[tab]){inited[tab]=1;RENDER[tab]()}
+  if(tab==="graph")gResize();
+}
+$("#nav").addEventListener("click",e=>{const b=e.target.closest("button");if(b)show(b.dataset.tab)});
+document.addEventListener("click",e=>{const a=e.target.closest("[data-open]");if(a){e.preventDefault();openFile(+a.dataset.open)}});
+
+/* ---------- overview ---------- */
+function rOverview(){
+  const totalW=F.reduce((a,f)=>a+(f.w||0),0), md=F.filter(f=>f.k!=="config").length;
+  const connected=new Set();D.refs.forEach(r=>{connected.add(r[0]);connected.add(r[1])});
+  const byCat={};F.forEach(f=>{const c=byCat[f.cat]=byCat[f.cat]||{n:0,w:0};c.n++;c.w+=f.w||0});
+  const maxN=Math.max(...Object.values(byCat).map(c=>c.n));
+  const catRows=Object.keys(byCat).sort((a,b)=>byCat[b].n-byCat[a].n).map(k=>
+    "<tr><td>"+catDot(k)+"</td><td>"+byCat[k].n+'</td><td><span class="bar" style="width:'+Math.round(byCat[k].n/maxN*160)+"px;background:"+cat(k).color+'"></span></td><td class="mu">'+fmt(byCat[k].w)+" words</td></tr>").join("");
+  const top=F.map(f=>({f,n:new Set(ins[f.id].filter(r=>r[2]!=="level").map(r=>r[0])).size})).sort((a,b)=>b.n-a.n).slice(0,12);
+  const hub=F.map(f=>({f,n:new Set(outs[f.id].filter(r=>r[2]!=="level"&&r[2]!=="mention").map(r=>r[1])).size})).sort((a,b)=>b.n-a.n).slice(0,12);
+  const typeCount={};D.refs.forEach(r=>typeCount[r[2]]=(typeCount[r[2]]||0)+1);
+  const broken=D.unresolved.filter(u=>u[4]==="broken").length;
+  $("#overview").innerHTML=
+   '<h2>What this is</h2><div class="box">A map of everything inside <code>writing/</code>: every file, how they reference each other, and a real SQLite database behind it (<code>writing-map/writing_map.db</code>). '+
+   'Re-run <code>python writing-map/build_map.py</code> after changing the writing &mdash; the scan is diffed against the previous one and stored in the <b>History</b> tab, so you can always see what moved, changed or vanished.</div>'+
+   '<h2>At a glance</h2><div class="cards">'+
+   [[md,"markdown files"],[fmt(totalW),"words"],[D.msgs.length,"messages"],[D.files.filter(f=>f.k==="document").length,"in-world documents"],
+    [D.chars.length,"character files"],[D.people.length,"people tracked"],[fmt(D.refs.length),"file-to-file links"],[connected.size+" / "+F.length,"files connected"],
+    [broken,"broken refs"],[D.canon.reduce((a,r)=>a+r.n_flagged,0),"canon violations"],[D.name_issues.length,"name / ID issues"],[D.scans.length,"scans recorded"]].map(c=>'<div class="card"><b>'+c[0]+"</b><span>"+c[1]+"</span></div>").join("")+"</div>"+
+   '<div class="grid2"><div><h2>Files by category</h2><div class="box"><table>'+catRows+"</table></div></div>"+
+   '<div><h2>Link types</h2><div class="box"><table>'+Object.keys(typeCount).map(t=>'<tr><td><span class="dot" style="background:'+TYPE_COL[t]+'"></span>'+esc(TYPE_LABEL[t]||t)+"</td><td>"+typeCount[t]+"</td></tr>").join("")+"</table></div></div></div>"+
+   '<div class="grid2"><div><h2>Most referenced files (the load-bearing canon)</h2><div class="box">'+top.map(t=>'<div>'+chip(t.f)+' <span class="mu">cited by '+t.n+"</span></div>").join("")+"</div></div>"+
+   '<div><h2>Biggest hubs (cite the most other files)</h2><div class="box">'+hub.map(t=>'<div>'+chip(t.f)+' <span class="mu">cites '+t.n+"</span></div>").join("")+"</div></div></div>"+
+   '<h2>Tabs</h2><div class="box"><b>Graph</b> web of all files &middot; <b>People</b> who connects to whom &middot; <b>Timeline</b> messages in in-world time &middot; <b>Coverage</b> phases, levels, lore terms &middot; <b>Canon</b> rule checker + name/ID consistency &middot; <b>Health</b> broken refs, orphans &middot; <b>Matrix</b> category flows, concept heatmap &middot; <b>Explorer</b> per-file links &middot; <b>Database ERD</b> the SQLite schema &middot; <b>Export</b> Mermaid / Graphviz / SQL &middot; <b>History</b> trends, diffs and restore.</div>';
+}
+
+/* ---------- graph ---------- */
+const G={nodes:[],idx:{},edges:[],sel:null,hov:null,alpha:1,k:1,tx:0,ty:0,on:{document:1,message:1,character:1,path:1,weapon:1,mention:0,level:0},cats:new Set(Object.keys(D.cats)),drag:null,pan:null,W:0,H:0,run:false};
+function rGraph(){
+  const cats=Object.keys(D.cats).filter(k=>F.some(f=>f.cat===k));
+  const R=Math.max(260,cats.length*30);
+  G.cpos={};cats.forEach((k,i)=>{const a=i/cats.length*Math.PI*2;G.cpos[k]=[Math.cos(a)*R,Math.sin(a)*R]});
+  F.forEach((f,i)=>{const c=G.cpos[f.cat]||[0,0];const n={f,x:c[0]+(Math.random()-.5)*80,y:c[1]+(Math.random()-.5)*80,vx:0,vy:0,r:3,deg:0,hid:false};G.nodes.push(n);G.idx[f.id]=n});
+  G.nodes.forEach(n=>{n.ind=new Set(ins[n.f.id].filter(r=>r[2]!=="level"&&r[2]!=="mention").map(r=>r[0])).size;n.r=3+Math.sqrt(n.ind)*1.5});
+  $("#gctl").innerHTML='<input type="search" id="gq" placeholder="Find node, Enter = jump" style="width:100%;margin-bottom:6px">'+
+    '<h3>Link types</h3>'+Object.keys(TYPE_LABEL).map(t=>'<label><input type="checkbox" data-gt="'+t+'"'+(G.on[t]?" checked":"")+'><span class="dot" style="background:'+TYPE_COL[t]+'"></span>'+esc(TYPE_LABEL[t])+"</label>").join("")+
+    '<h3>Categories</h3>'+cats.map(k=>'<label><input type="checkbox" data-gc="'+k+'" checked><span class="dot" style="background:'+cat(k).color+'"></span>'+esc(cat(k).label)+"</label>").join("")+
+    '<div style="margin-top:8px"><button id="greheat" class="pill" style="cursor:pointer">re-layout</button></div>';
+  $("#gctl").addEventListener("change",e=>{
+    if(e.target.dataset.gt){G.on[e.target.dataset.gt]=e.target.checked?1:0}
+    if(e.target.dataset.gc){e.target.checked?G.cats.add(e.target.dataset.gc):G.cats.delete(e.target.dataset.gc)}
+    gBuild();gHeat(.6)});
+  $("#greheat").onclick=()=>gHeat(1);
+  $("#gq").addEventListener("keydown",e=>{if(e.key!=="Enter")return;const q=e.target.value.toLowerCase().trim();if(!q)return;
+    const n=G.nodes.find(n=>!n.hid&&(label(n.f).toLowerCase().includes(q)||n.f.p.toLowerCase().includes(q)));if(n){gSelect(n);G.k=1.6;G.tx=G.W/2-n.x*G.k;G.ty=G.H/2-n.y*G.k;gDraw()}});
+  const cv=$("#gcv");
+  new ResizeObserver(gResize).observe($("#gwrap"));
+  cv.addEventListener("wheel",e=>{e.preventDefault();const r=cv.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top,f=e.deltaY<0?1.15:1/1.15,nk=Math.min(6,Math.max(.15,G.k*f));
+    G.tx=mx-(mx-G.tx)*nk/G.k;G.ty=my-(my-G.ty)*nk/G.k;G.k=nk;gDraw()},{passive:false});
+  cv.addEventListener("mousedown",e=>{const n=gHit(e);if(n){G.drag=n;G.moved=false}else G.pan={x:e.clientX,y:e.clientY,tx:G.tx,ty:G.ty,moved:false};cv.style.cursor="grabbing"});
+  window.addEventListener("mouseup",e=>{
+    if(G.drag){if(!G.moved)gSelect(G.drag);G.drag=null}
+    else if(G.pan){if(!G.pan.moved&&e.target===cv)gSelect(null);G.pan=null}
+    cv.style.cursor="grab"});
+  window.addEventListener("mousemove",e=>{
+    if(G.drag){const r=cv.getBoundingClientRect();G.drag.x=(e.clientX-r.left-G.tx)/G.k;G.drag.y=(e.clientY-r.top-G.ty)/G.k;G.drag.vx=G.drag.vy=0;G.moved=true;gHeat(.25)}
+    else if(G.pan){G.pan.moved=true;G.tx=G.pan.tx+e.clientX-G.pan.x;G.ty=G.pan.ty+e.clientY-G.pan.y;gDraw()}
+    else if(e.target===cv){const n=gHit(e);if(n!==G.hov){G.hov=n;gDraw()}
+      const t=$("#gtip");if(n){t.style.display="block";t.style.left=e.clientX+14+"px";t.style.top=e.clientY+14+"px";t.innerHTML=esc(label(n.f))+'<br><span class="mu">'+esc(n.f.p)+"</span>"}else t.style.display="none"}});
+  gResize();G.tx=G.W/2;G.ty=G.H/2;G.k=.8;gBuild();gHeat(1);
+}
+function gResize(){
+  const w=$("#gwrap"),cv=$("#gcv");if(!w||!cv||!w.clientWidth)return;const d=window.devicePixelRatio||1;
+  G.W=w.clientWidth;G.H=w.clientHeight;cv.width=G.W*d;cv.height=G.H*d;G.d=d;if(G.nodes.length)gDraw();
+}
+function gBuild(){
+  G.nodes.forEach(n=>n.hid=!G.cats.has(n.f.cat));
+  const m={};
+  D.refs.forEach(r=>{if(!G.on[r[2]])return;const a=G.idx[r[0]],b=G.idx[r[1]];if(!a||!b||a.hid||b.hid)return;
+    const k=r[0]<r[1]?r[0]+"-"+r[1]:r[1]+"-"+r[0];const e=m[k]=m[k]||{a,b,t:{},w:0};e.t[r[2]]=1;e.w+=Math.min(r[3],5)});
+  G.edges=Object.values(m);
+}
+function gHeat(a){G.alpha=Math.max(G.alpha,a);if(!G.run){G.run=true;requestAnimationFrame(gLoop)}}
+function gLoop(){
+  gStep();gDraw();G.alpha*=.985;
+  if(G.alpha>.015||G.drag)requestAnimationFrame(gLoop);else G.run=false;
+}
+function gStep(){
+  const N=G.nodes,a=G.alpha;
+  for(let i=0;i<N.length;i++){const p=N[i];if(p.hid)continue;p.fx=0;p.fy=0}
+  for(let i=0;i<N.length;i++){const p=N[i];if(p.hid)continue;
+    for(let j=i+1;j<N.length;j++){const q=N[j];if(q.hid)continue;
+      let dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy;if(d2>90000)continue;if(d2<1){dx=Math.random()-.5;dy=Math.random()-.5;d2=1}
+      const d=Math.sqrt(d2),f=520/d2;const fx=dx/d*f*d/ d*1,fy=dy/d*f*d/d*1;
+      p.fx+=dx/d*f*8;p.fy+=dy/d*f*8;q.fx-=dx/d*f*8;q.fy-=dy/d*f*8}}
+  G.edges.forEach(e=>{const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-48)*.02*Math.min(2,.6+e.w*.15);
+    e.a.fx+=dx/d*f;e.a.fy+=dy/d*f;e.b.fx-=dx/d*f;e.b.fy-=dy/d*f});
+  for(const n of N){if(n.hid)continue;const c=G.cpos[n.f.cat]||[0,0];
+    n.fx+=(c[0]-n.x)*.012-n.x*.0015;n.fy+=(c[1]-n.y)*.012-n.y*.0015;
+    if(n===G.drag)continue;n.vx=(n.vx+n.fx*a)*.62;n.vy=(n.vy+n.fy*a)*.62;n.x+=n.vx;n.y+=n.vy}
+}
+function gHit(e){
+  const r=$("#gcv").getBoundingClientRect(),x=(e.clientX-r.left-G.tx)/G.k,y=(e.clientY-r.top-G.ty)/G.k;let best=null,bd=1e9;
+  for(const n of G.nodes){if(n.hid)continue;const d=Math.hypot(n.x-x,n.y-y);if(d<n.r+4/G.k&&d<bd){bd=d;best=n}}return best;
+}
+function gNeigh(n){const s=new Set([n]);G.edges.forEach(e=>{if(e.a===n)s.add(e.b);if(e.b===n)s.add(e.a)});return s}
+function gDraw(){
+  const cv=$("#gcv");if(!cv||!G.W)return;const x=cv.getContext("2d");x.setTransform(G.d,0,0,G.d,0,0);x.clearRect(0,0,G.W,G.H);
+  x.translate(G.tx,G.ty);x.scale(G.k,G.k);
+  const focus=G.sel||G.hov,nb=focus?gNeigh(focus):null;
+  x.lineWidth=1/G.k;
+  G.edges.forEach(e=>{
+    const hot=focus&&(e.a===focus||e.b===focus);
+    const t=Object.keys(e.t);x.strokeStyle=hot?TYPE_COL[t[0]]:"#8895aa";
+    x.globalAlpha=focus?(hot?.95:.04):.17;x.lineWidth=(hot?1.8:1)/G.k;
+    x.beginPath();x.moveTo(e.a.x,e.a.y);x.lineTo(e.b.x,e.b.y);x.stroke()});
+  x.globalAlpha=1;
+  for(const n of G.nodes){if(n.hid)continue;const dim=nb&&!nb.has(n);
+    x.globalAlpha=dim?.15:1;x.fillStyle=cat(n.f.cat).color;x.beginPath();x.arc(n.x,n.y,n.r,0,7);x.fill();
+    if(n===G.sel||n===G.hov){x.strokeStyle="#fff";x.lineWidth=2/G.k;x.stroke()}}
+  x.globalAlpha=1;x.font=(11/G.k)+"px sans-serif";x.textBaseline="middle";
+  for(const n of G.nodes){if(n.hid)continue;
+    const want=(nb&&nb.has(n))||n.ind>=14&&G.k>.7||G.k>2.2||(G.k>1.3&&n.ind>=5);if(!want)continue;
+    if(nb&&!nb.has(n))continue;x.fillStyle="#e8ecf2";x.fillText(short(label(n.f),26),n.x+n.r+3/G.k,n.y)}
+}
+function gSelect(n){
+  G.sel=n;gDraw();const d=$("#gdet");
+  if(!n){d.innerHTML='<span class="mu">Click a node to see its connections.</span>';return}
+  const f=n.f,o={},i={};
+  G.edges.forEach(e=>{if(e.a!==n&&e.b!==n)return;const other=e.a===n?e.b:e.a;
+    outs[f.id].filter(r=>r[1]===other.f.id&&G.on[r[2]]).forEach(r=>(o[r[2]]=o[r[2]]||[]).push(other.f));
+    ins[f.id].filter(r=>r[0]===other.f.id&&G.on[r[2]]).forEach(r=>(i[r[2]]=i[r[2]]||[]).push(other.f))});
+  const blk=(t,m)=>Object.keys(m).map(k=>'<h3>'+t+" &middot; "+esc(k)+" ("+m[k].length+")</h3>"+m[k].slice(0,30).map(chip).join("")+(m[k].length>30?'<span class="mu"> +'+(m[k].length-30)+" more</span>":"")).join("");
+  d.innerHTML='<b>'+esc(label(f))+'</b><div class="mu sm">'+esc(f.p)+'</div><div>'+catDot(f.cat)+'</div><div class="sm mu">'+fmt(f.w)+" words</div>"+
+   '<p><a data-open="'+f.id+'">Open in Explorer &rarr;</a></p>'+blk("Cites",o)+blk("Cited by",i);
+}
+
+/* ---------- ERD ---------- */
+function rErd(){
+  const W=270,RH=18,HH=30,pos=D.erd,T={};
+  D.schema.forEach(t=>{const p=pos[t.name]||[20,20];T[t.name]={t,x:p[0],y:p[1],h:HH+t.cols.length*RH+8}});
+  let maxX=0,maxY=0;Object.values(T).forEach(b=>{maxX=Math.max(maxX,b.x+W+30);maxY=Math.max(maxY,b.y+b.h+30)});
+  const grp={scans:"#6b7280",snapshots:"#6b7280",changes:"#6b7280",files:"#4f9cf9",refs:"#4f9cf9",unresolved:"#4f9cf9",concepts:"#f2c14e",concept_mentions:"#f2c14e",people:"#ef6f8e",characters:"#ef6f8e",messages:"#f28c38",documents:"#8e7cf8",levels:"#3fc7b4",weapons:"#c7a27c"};
+  let s='<svg id="erdsvg" width="'+maxX+'" height="'+maxY+'" xmlns="http://www.w3.org/2000/svg">',lines="",boxes="";
+  D.schema.forEach(t=>{
+    t.cols.forEach((c,ci)=>{if(!c.fk)return;const tt=c.fk.split(".")[0],b=T[t.name],o=T[tt];if(!o)return;
+      const oi=Math.max(0,o.t.cols.findIndex(x=>x.n===c.fk.split(".")[1]));
+      const sy=b.y+HH+ci*RH+RH/2,ty=o.y+HH+oi*RH+RH/2;let sx,tx,c1,c2;
+      if(b.x+W<o.x){sx=b.x+W;tx=o.x;c1=sx+60;c2=tx-60}
+      else if(o.x+W<b.x){sx=b.x;tx=o.x+W;c1=sx-60;c2=tx+60}
+      else{sx=b.x+W;tx=o.x+W;c1=sx+70;c2=tx+70}
+      lines+='<path class="fk" data-a="'+t.name+'" data-b="'+tt+'" d="M'+sx+","+sy+" C"+c1+","+sy+" "+c2+","+ty+" "+tx+","+ty+'"/>'+
+        '<circle cx="'+sx+'" cy="'+sy+'" r="3" fill="#99a"/><circle cx="'+tx+'" cy="'+ty+'" r="3" fill="#99a"/>'});
+    const b=T[t.name],col=grp[t.name]||"#4f9cf9";
+    boxes+='<g class="tb" data-t="'+t.name+'"><rect class="bx" x="'+b.x+'" y="'+b.y+'" width="'+W+'" height="'+b.h+'" rx="8" fill="#161b22" stroke="#2a3140" stroke-width="1.5"/>'+
+      '<path d="M'+b.x+","+(b.y+HH)+" v-"+(HH-8)+" a8,8 0 0 1 8,-8 h"+(W-16)+" a8,8 0 0 1 8,8 v"+(HH-8)+'z" fill="'+col+'" opacity=".85"/>'+
+      '<text class="th" x="'+(b.x+12)+'" y="'+(b.y+20)+'">'+esc(t.name)+'</text><text x="'+(b.x+W-10)+'" y="'+(b.y+20)+'" text-anchor="end" style="fill:#fff;font-size:11px">'+fmt(t.rows)+" rows</text>"+
+      t.cols.map((c,ci)=>{const y=b.y+HH+ci*RH+13;
+        return '<text x="'+(b.x+10)+'" y="'+y+'" style="fill:'+(c.pk?"#f2c14e":c.fk?"#7fb2ff":"#d7dce4")+'">'+(c.pk?"PK ":c.fk?"FK ":"   ")+esc(c.n)+'</text><text class="cm" x="'+(b.x+W-10)+'" y="'+y+'" text-anchor="end">'+esc(c.t.toLowerCase())+"</text>"}).join("")+"</g>";
+  });
+  s+=lines+boxes+"</svg>";
+  $("#erd").innerHTML='<h2>Database schema <span class="mu sm">&mdash; real SQLite, <code>writing-map/writing_map.db</code> (click a table)</span></h2>'+
+    '<div id="erdwrap">'+s+'</div><div class="box" id="erdinfo" style="margin-top:10px"><span class="mu">Tables: blue = file graph, orange = comms, purple = documents, pink = people, grey = scan history, yellow = lore concepts.</span></div>'+
+    '<h2>Useful queries</h2><pre>-- what cites document 2.45 (SOLCRED)?\nSELECT s.path FROM refs r JOIN files s ON s.id=r.src_file JOIN documents d ON d.file_id=r.dst_file WHERE d.doc_no=\'2.45\';\n\n'+
+    '-- who writes to whom\nSELECT * FROM v_who_writes_to_whom LIMIT 20;\n\n-- files nobody cites\nSELECT * FROM v_orphans;\n\n-- every message involving Tarek\nSELECT f.path, m.subject FROM messages m JOIN files f ON f.id=m.file_id JOIN people p ON p.id IN (m.from_person,m.to_person) WHERE p.name LIKE \'%Tarek%\';\n\n'+
+    '-- what changed in the last scan\nSELECT change, path FROM changes WHERE scan_id=(SELECT max(id) FROM scans);</pre>'+
+    '<details><summary>Full CREATE statements</summary><pre>'+esc(D.sql)+"</pre></details>";
+  $("#erdsvg").addEventListener("click",e=>{
+    const g=e.target.closest(".tb");document.querySelectorAll("#erdsvg .fk").forEach(p=>p.classList.remove("on"));if(!g)return;
+    const n=g.dataset.t;document.querySelectorAll("#erdsvg .fk").forEach(p=>{if(p.dataset.a===n||p.dataset.b===n)p.classList.add("on")});
+    const t=T[n].t;$("#erdinfo").innerHTML="<b>"+esc(n)+"</b> &mdash; "+esc(t.desc)+' <span class="mu">('+fmt(t.rows)+" rows)</span>"+
+      "<div class=\"sm\" style=\"margin-top:6px\">"+t.cols.map(c=>"<code>"+esc(c.n)+"</code> "+esc(c.t.toLowerCase())+(c.fk?' <span class="pill">&rarr; '+esc(c.fk)+"</span>":"")+(c.pk?' <span class="pill warn">PK</span>':"")).join("<br>")+"</div>"});
+}
+
+/* ---------- explorer ---------- */
+let exSel=null;
+function rExplorer(){
+  const cats=Object.keys(D.cats).filter(k=>F.some(f=>f.cat===k));
+  $("#exc").innerHTML='<option value="">All categories</option>'+cats.map(k=>'<option value="'+k+'">'+esc(cat(k).label)+"</option>").join("");
+  $("#exq").oninput=exList;$("#exc").onchange=exList;exList();
+}
+function exList(){
+  const q=$("#exq").value.toLowerCase().trim(),c=$("#exc").value,groups={};
+  F.filter(f=>(!c||f.cat===c)&&(!q||(f.p.toLowerCase().includes(q)||(f.c||"").toLowerCase().includes(q)||(f.t||"").toLowerCase().includes(q)))).forEach(f=>{
+    const g=f.p.includes("/")?f.p.slice(0,f.p.lastIndexOf("/")):"(writing root)";(groups[g]=groups[g]||[]).push(f)});
+  $("#exlist").innerHTML=Object.keys(groups).sort().map(g=>'<div class="fd">'+esc(g)+" ("+groups[g].length+")</div>"+groups[g].map(f=>
+    '<div class="it'+(f.id===exSel?" on":"")+'" data-open="'+f.id+'" title="'+esc(f.p)+'"><span class="dot" style="background:'+cat(f.cat).color+'"></span>'+esc(label(f))+"</div>").join("")).join("")||'<div class="mu" style="padding:12px">No match.</div>';
+}
+function openFile(id){
+  exSel=id;show("explorer");setHash("explorer/"+id);exList();const it=document.querySelector('#exlist .it.on');if(it)it.scrollIntoView({block:"nearest"});
+  const f=byId[id];if(!f)return;
+  const grp=(list,pick)=>{const m={};list.forEach(r=>(m[r[2]]=m[r[2]]||[]).push(r));
+    return Object.keys(m).sort().map(t=>{const rows=m[t].sort((a,b)=>b[3]-a[3]);
+      const body=(t==="mention"||t==="level")?rows.map(r=>chip(byId[pick(r)])+'<span class="mu sm">\u00d7'+r[3]+" </span>").join(""):
+        rows.map(r=>'<div>'+chip(byId[pick(r)])+(r[3]>1?'<span class="mu sm">\u00d7'+r[3]+" </span>":"")+'<span class="mu sm"> '+esc(short(r[4]||"",110))+"</span></div>").join("");
+      return '<h3><span class="dot" style="background:'+TYPE_COL[t]+'"></span>'+esc(TYPE_LABEL[t]||t)+" ("+rows.length+")</h3>"+body}).join("")||'<div class="mu">none</div>'};
+  const m=msgBy[id],ch=charBy[id],pp=x=>x&&peopleBy[x]?esc(peopleBy[x].code?peopleBy[x].code+" "+peopleBy[x].name:peopleBy[x].name):"?";
+  let extra="";
+  if(m)extra+='<div class="box" style="margin:10px 0"><b>'+esc(m.subj||"")+"</b><br>From: "+pp(m.from)+"<br>To: "+pp(m.to)+'<br><span class="mu">'+esc(m.ts||"")+"</span></div>";
+  if(ch&&ch.blurb)extra+='<div class="box" style="margin:10px 0">'+esc(ch.blurb)+"</div>";
+  if(ch&&ch.person){const sent=D.msgs.filter(x=>x.from===ch.person),got=D.msgs.filter(x=>x.to===ch.person);
+    if(sent.length||got.length)extra+='<h3>Messages</h3>'+sent.concat(got).filter((x,i,a)=>a.indexOf(x)===i).map(x=>chip(byId[x.f])).join("")}
+  const un=(unresBy[id]||[]).map(u=>'<span class="pill '+(u[4]==="broken"?"bad":"warn")+'">'+esc(u[1])+(u[3]>1?" \u00d7"+u[3]:"")+"</span>").join("");
+  const cc=(cmBy[id]||[]).sort((a,b)=>b[2]-a[2]).map(c=>'<span class="pill">'+esc(conName[c[1]])+" "+c[2]+"</span>").join("");
+  const href="file:///"+D.meta.writing_root.replace(/ /g,"%20")+"/"+(f.r||f.p).split("/").map(encodeURIComponent).join("/");
+  $("#exd").innerHTML='<h2 style="font-size:18px">'+esc(f.c?f.c+" \u2014 ":"")+esc(f.t||f.n)+'</h2><div>'+catDot(f.cat)+' <span class="pill">'+esc(f.k)+'</span></div>'+
+    '<div class="mu sm" style="margin:4px 0"><code>'+esc(f.r||f.p)+"</code> &middot; "+fmt(f.w)+" words &middot; "+fmt(f.l)+" lines &middot; "+(f.b/1024).toFixed(1)+' KB &middot; <a href="'+href+'" target="_blank">open file</a></div>'+extra+
+    (un?"<h3>Unresolved</h3>"+un:"")+(cc?"<h3>Concepts</h3>"+cc:"")+
+    '<div class="grid2"><div><h2>Cites &rarr;</h2>'+grp(outs[id],r=>r[1])+"</div><div><h2>&larr; Cited by</h2>"+grp(ins[id],r=>r[0])+"</div></div>";
+}
+
+/* ---------- matrix ---------- */
+function heat(v,max,rgb){if(!v)return "transparent";const a=Math.min(1,.12+Math.log(1+v)/Math.log(1+max)*.88);return "rgba("+rgb+","+a.toFixed(2)+")"}
+function rMatrix(){
+  $("#matrix").innerHTML='<h2>Category flow &mdash; which kind of file cites which</h2>'+
+   '<div style="margin-bottom:8px">Link set: <select id="mxt"><option value="explicit">Explicit refs (docs, msgs, E-codes, paths, weapons)</option><option value="mention">Character name mentions</option><option value="level">Level refs</option><option value="all">Everything</option></select> <span class="mu sm">rows cite columns &middot; number = distinct file pairs &middot; click a cell for the list</span></div>'+
+   '<div id="mxa"></div><div id="mxl" class="box lst" style="margin-top:8px;display:none"></div>'+
+   '<h2>Lore concept heatmap &mdash; where each concept lives</h2><div id="mxc"></div>'+
+   '<h2>Who writes to whom</h2><div id="mxp" class="box lst"></div>';
+  $("#mxt").onchange=mxCat;mxCat();mxConcepts();mxPeople();
+}
+function mxCat(){
+  const t=$("#mxt").value,ok=r=>t==="all"||(t==="explicit"?EXPLICIT.includes(r[2]):r[2]===t);
+  const cats=Object.keys(D.cats).filter(k=>F.some(f=>f.cat===k)),M={};cats.forEach(a=>{M[a]={};cats.forEach(b=>M[a][b]=[])});
+  const seen=new Set();
+  D.refs.forEach(r=>{if(!ok(r))return;const a=byId[r[0]],b=byId[r[1]];if(!a||!b)return;const k=r[0]+">"+r[1];if(seen.has(k))return;seen.add(k);M[a.cat][b.cat].push([a,b])});
+  let max=0;cats.forEach(a=>cats.forEach(b=>max=Math.max(max,M[a][b].length)));
+  window._M=M;
+  $("#mxa").innerHTML='<table class="mx"><tr><th></th>'+cats.map(k=>'<th class="v"><div>'+esc(cat(k).label)+"</div></th>").join("")+"</tr>"+
+   cats.map(a=>'<tr><th class="r">'+catDot(a)+"</th>"+cats.map(b=>{const n=M[a][b].length;return '<td class="'+(n?"c":"")+'" data-a="'+a+'" data-b="'+b+'" style="background:'+heat(n,max,"79,156,249")+'" title="'+esc(cat(a).label+" \u2192 "+cat(b).label)+": "+n+'">'+(n||"")+"</td>"}).join("")+"</tr>").join("")+"</table>";
+  $("#mxl").style.display="none";
+  $("#mxa").onclick=e=>{const td=e.target.closest("td.c");if(!td)return;const l=M[td.dataset.a][td.dataset.b];
+    const box=$("#mxl");box.style.display="block";
+    box.innerHTML="<b>"+esc(cat(td.dataset.a).label)+" &rarr; "+esc(cat(td.dataset.b).label)+"</b> ("+l.length+")<br>"+l.slice(0,300).map(p=>chip(p[0])+"&rarr;"+chip(p[1])+"<br>").join("")}
+}
+function mxConcepts(){
+  const cats=Object.keys(D.cats).filter(k=>F.some(f=>f.cat===k)),M={};
+  D.concepts.forEach(c=>{M[c.id]={};cats.forEach(k=>M[c.id][k]=0)});
+  D.cm.forEach(c=>{const f=byId[c[0]];if(f&&M[c[1]])M[c[1]][f.cat]+=c[2]});
+  let max=0;Object.values(M).forEach(r=>Object.values(r).forEach(v=>max=Math.max(max,v)));
+  $("#mxc").innerHTML='<table class="mx"><tr><th></th>'+cats.map(k=>'<th class="v"><div>'+esc(cat(k).label)+"</div></th>").join("")+"<th class=\"v\"><div>files</div></th></tr>"+
+   D.concepts.map(c=>'<tr><th class="r">'+esc(c.name)+"</th>"+cats.map(k=>'<td style="background:'+heat(M[c.id][k],max,"239,111,142")+'" title="'+M[c.id][k]+'">'+(M[c.id][k]||"")+"</td>").join("")+"<td>"+(D.cm.filter(x=>x[1]===c.id).length)+"</td></tr>").join("")+"</table>";
+}
+function mxPeople(){
+  const pairs={};
+  D.msgs.forEach(m=>{const k=(m.from||0)+">"+(m.to||0);(pairs[k]=pairs[k]||{from:m.from,to:m.to,l:[]}).l.push(m)});
+  const nm=x=>x&&peopleBy[x]?peopleBy[x].name+(peopleBy[x].code?" ("+peopleBy[x].code+")":""):"(unparsed)";
+  $("#mxp").innerHTML="<table>"+Object.values(pairs).sort((a,b)=>b.l.length-a.l.length).map(p=>
+    "<tr><td>"+esc(nm(p.from))+"</td><td>&rarr;</td><td>"+esc(nm(p.to))+"</td><td>"+p.l.length+"</td><td>"+p.l.map(m=>chip(byId[m.f])).join("")+"</td></tr>").join("")+"</table>";
+}
+
+/* ---------- health ---------- */
+function rHealth(){
+  const broken=D.unresolved.filter(u=>u[4]==="broken"),info=D.unresolved.filter(u=>u[4]==="info");
+  const noIn=F.filter(f=>f.k!=="config"&&!ins[f.id].length),noOut=F.filter(f=>f.k!=="config"&&!outs[f.id].length);
+  const badMsg=D.msgs.filter(m=>!m.from||!m.to);
+  const prof={};info.forEach(u=>{(prof[u[1]]=prof[u[1]]||[]).push(u[0])});
+  $("#health").innerHTML='<div class="cards"><div class="card"><b class="'+(broken.length?"chg-d":"chg-a")+'">'+broken.length+"</b><span>broken refs</span></div>"+
+    '<div class="card"><b>'+noIn.length+"</b><span>files nobody cites</span></div><div class=\"card\"><b>"+noOut.length+"</b><span>files that cite nothing</span></div>"+
+    '<div class="card"><b>'+Object.keys(prof).length+"</b><span>E-codes w/o profile</span></div><div class=\"card\"><b>"+badMsg.length+"</b><span>messages w/ unparsed From/To</span></div></div>"+
+    '<h2>Broken references <span class="mu sm">(point at a document / file that does not exist)</span></h2><div class="box lst">'+
+    (broken.length?"<table>"+broken.map(u=>"<tr><td>"+chip(byId[u[0]])+'</td><td><span class="pill bad">'+esc(u[1])+"</span></td><td>"+u[3]+"&times;</td></tr>").join("")+"</table>":'<span class="chg-a">None.</span>')+"</div>"+
+    '<h2>Mentioned people without a profile file</h2><div class="box lst"><table>'+Object.keys(prof).sort().map(k=>"<tr><td><span class=\"pill warn\">"+esc(k)+"</span></td><td>"+prof[k].map(i=>chip(byId[i])).join("")+"</td></tr>").join("")+"</table></div>"+
+    '<div class="grid2"><div><h2>Orphans &mdash; nobody cites these</h2><div class="box lst">'+noIn.map(chip).join("")+"</div></div>"+
+    '<div><h2>Dead ends &mdash; cite nothing</h2><div class="box lst">'+noOut.map(chip).join("")+"</div></div></div>"+
+    (badMsg.length?'<h2>Messages with unparsed From/To</h2><div class="box lst">'+badMsg.map(m=>chip(byId[m.f])).join("")+"</div>":"");
+}
+
+/* ---------- shared helpers for the newer tabs ---------- */
+const byPath={};F.forEach(f=>byPath[f.p]=f);
+const pchip=p=>byPath[p]?chip(byPath[p]):'<span class="fl" title="no longer on disk">'+esc(p.split("/").pop())+"</span>";
+const card=(v,l,c)=>'<div class="card"><b'+(c?' class="'+c+'"':"")+">"+v+"</b><span>"+l+"</span></div>";
+const sevCls={error:"bad",warn:"warn",info:""};
+const copyText=t=>{const ta=document.createElement("textarea");ta.value=t;ta.style.cssText="position:fixed;opacity:0";document.body.appendChild(ta);ta.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}ta.remove();return ok};
+const saveText=(name,t)=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([t],{type:"text/plain"}));a.download=name;document.body.appendChild(a);a.click();a.remove()};
+function setHash(h){try{history.replaceState(null,"","#"+h)}catch(e){}}
+
+/* ---------- canon + names ---------- */
+function rCanon(){
+  const R=D.canon,nv=R.reduce((a,r)=>a+r.n_flagged,0),nok=R.reduce((a,r)=>a+r.ok,0),nacc=R.reduce((a,r)=>a+r.accepted,0);
+  const iss=D.name_issues,errs=iss.filter(i=>i.sev==="error").length,W=D.timeline.warnings;
+  const KL={"code-conflict":"Same E-code, different people","name-multi-code":"One name, several E-codes","first-name-clash":"Same first name, different surnames","level-drift":"Placed on different levels","spelling":"Possible misspelling"};
+  const rows=R.map(r=>"<tr><td><b>"+esc(r.label)+"</b></td><td>"+r.allowed.map(a=>'<span class="pill ok">'+esc(a)+"</span>").join("")+"</td><td>"+r.ok+"</td><td>"+(r.accepted||"")+"</td><td>"+
+    (r.n_flagged?'<details open><summary class="chg-d">'+r.n_flagged+" flagged</summary>"+r.flagged.map(f=>'<div style="margin:4px 0">'+chip(byId[f.f])+' <span class="mu sm">line '+f.line+'</span> <span class="pill bad">'+esc(f.value)+'</span><div class="mu sm">'+esc(f.text)+"</div></div>").join("")+"</details>":'<span class="chg-a">clean</span>')+"</td></tr>").join("");
+  const acc=R.reduce((a,r)=>a.concat((r.accepted_list||[]).map(x=>[r.label,x])),[]);
+  const groups={};iss.forEach(i=>(groups[i.kind]=groups[i.kind]||[]).push(i));
+  const nameHtml=Object.keys(groups).map(k=>"<h3>"+esc(KL[k]||k)+" ("+groups[k].length+")</h3>"+groups[k].map(i=>'<div class="box" style="margin:6px 0"><span class="pill '+(sevCls[i.sev]||"")+'">'+i.sev+"</span> "+esc(i.detail)+'<div style="margin-top:4px">'+i.ids.slice(0,10).map(x=>byId[x]?chip(byId[x]):"").join("")+(i.ids.length>10?'<span class="mu sm"> +'+(i.ids.length-10)+" more</span>":"")+"</div></div>").join("")).join("")||'<span class="chg-a">None.</span>';
+  $("#canon").innerHTML='<div class="cards">'+card(nv,"canon violations",nv?"chg-d":"chg-a")+card(nok,"values matching canon")+card(nacc,"accepted exceptions")+card(iss.length,"name / ID issues",errs?"chg-d":iss.length?"chg-m":"chg-a")+card(W.length,"date-order warnings",W.length?"chg-m":"chg-a")+"</div>"+
+   '<h2>Canon rules <span class="mu sm">&mdash; edit <code>writing-map/canon_rules.json</code> to add or change rules</span></h2><div class="box"><table><tr><th>Rule</th><th>Allowed</th><th>OK</th><th>Accepted</th><th>Result</th></tr>'+rows+"</table></div>"+
+   (acc.length?'<h2>Accepted exceptions</h2><div class="box"><table><tr><th>Rule</th><th>Value</th><th>In files matching</th><th>Why</th></tr>'+acc.map(a=>"<tr><td>"+esc(a[0])+'</td><td><span class="pill">'+esc(a[1].value)+"</span></td><td><code>"+esc(a[1].path)+"</code></td><td>"+esc(a[1].why||"")+"</td></tr>").join("")+"</table></div>":"")+
+   "<h2>Names and IDs</h2>"+nameHtml+
+   (W.length?'<h2>Date-order warnings</h2>'+W.map(w=>'<div class="box" style="margin:6px 0">'+esc(w.text)+" "+chip(byId[w.f])+chip(byId[w.other])+"</div>").join(""):"");
+}
+
+/* ---------- timeline ---------- */
+function rTimeline(){
+  const T=D.timeline,P=T.placed,key=m=>m.cycle*10+(m.q||0);
+  const periods=[...new Set(P.map(key))].sort((a,b)=>a-b);
+  const lab=k=>"C"+Math.floor(k/10)+(k%10?" Q"+(k%10):"");
+  const lanes=[["A","Employee (A)"],["B","PTKW (B)"],["C","Branch Director (C)"],["D","Design team (D)"]];
+  const cell=(ln,k)=>P.filter(m=>m.series===ln&&key(m)===k).sort((a,b)=>(a.day||0)-(b.day||0)||String(a.code).localeCompare(String(b.code))).map(m=>{
+    const inf=m.src==="Body (inferred)";
+    return '<a class="fl" data-open="'+m.f+'" title="'+esc(((msgBy[m.f]||{}).subj||"")+" \u2014 "+m.raw+(inf?" (date inferred from body text)":""))+'">'+esc(m.code)+(m.day?'<span class="mu"> d'+m.day+"</span>":"")+(inf?"~":"")+"</a>"}).join("");
+  const inferred=P.filter(m=>m.src==="Body (inferred)").length;
+  $("#timeline").innerHTML='<div class="cards">'+card(P.length,"messages placed in time")+card(T.undated.length,"messages without a date",T.undated.length?"chg-m":"chg-a")+card(inferred,"dates inferred from body")+card(T.warnings.length,"order warnings",T.warnings.length?"chg-m":"chg-a")+"</div>"+
+   '<div class="mu sm" style="margin-bottom:8px">Columns are in-world periods (Cycle / Quarter). <code>d14</code> = Day 14 when the message says so. <code>~</code> = no header date, inferred from a date mentioned in the body. Hover a code for the subject.</div>'+
+   '<div style="overflow:auto"><table class="tl"><tr><th></th>'+periods.map(k=>'<th class="col">'+lab(k)+"</th>").join("")+"</tr>"+
+   lanes.map(l=>'<tr><th class="lane">'+l[1]+"</th>"+periods.map(k=>"<td>"+cell(l[0],k)+"</td>").join("")+"</tr>").join("")+"</table></div>"+
+   (T.warnings.length?"<h2>Order warnings</h2>"+T.warnings.map(w=>'<div class="box" style="margin:6px 0">'+esc(w.text)+" "+chip(byId[w.f])+chip(byId[w.other])+"</div>").join(""):"")+
+   '<h2>Undated messages <span class="mu sm">&mdash; add a line like <code>**Date:** Cycle 300 Q3</code> to place them</span></h2><div class="box lst">'+T.undated.map(f=>byId[f]?chip(byId[f]):"").join("")+"</div>";
+}
+
+/* ---------- people / relationships ---------- */
+const PP={weak:false,sel:null};
+function rPeople(){
+  $("#people").innerHTML='<div class="mu sm" style="margin-bottom:8px"><span style="color:#4f9cf9">Blue lines</span> = messages sent between two people. <span style="color:#8b95a5">Grey lines</span> = characters who share paragraphs in the writing. '+
+   '<span style="color:#ef6f8e">Pink</span> = has a profile file, <span style="color:#6fcf6f">green</span> = has an E-code but no profile, <span style="color:#f28c38">orange</span> = role or group. Click a node; unconnected people are listed on the right.</div>'+
+   '<div style="margin-bottom:8px"><label><input type="checkbox" id="pweak"> include weak co-mentions (2+ shared paragraphs instead of 5+)</label></div>'+
+   '<div id="pgrid"><div><svg id="psvg" viewBox="0 0 900 640"></svg></div><div class="box" id="pside"></div></div><h2>Everyone</h2><div id="ptab"></div>';
+  $("#pweak").onchange=e=>{PP.weak=e.target.checked;pLayout();pDraw()};
+  $("#psvg").addEventListener("click",e=>{const g=e.target.closest("[data-n]");PP.sel=g?g.dataset.n:null;pDraw()});
+  $("#pside").onclick=e=>{const a=e.target.closest("[data-pn]");if(a){PP.sel=a.dataset.pn;pDraw()}};
+  pLayout();pDraw();pTable();
+}
+function pLayout(){
+  const R=D.rel,th=PP.weak?2:5,ed=R.edges.filter(e=>e.msgs>0||e.paras>=th);
+  const N=R.nodes.map((n,i)=>({n,x:450+Math.cos(i*2.399)*(120+i*8),y:320+Math.sin(i*2.399)*(100+i*6),vx:0,vy:0,r:5+Math.sqrt(n.files)*1.3}));
+  const ix={};N.forEach(o=>ix[o.n.name]=o);
+  const E=ed.map(e=>({a:ix[e.a],b:ix[e.b],w:Math.min(8,e.msgs*3+e.paras*.4),msgs:e.msgs,paras:e.paras})).filter(e=>e.a&&e.b);
+  for(let it=0;it<500;it++){
+    const al=1-it/500;
+    for(let i=0;i<N.length;i++)for(let j=i+1;j<N.length;j++){const p=N[i],q=N[j],dx=p.x-q.x,dy=p.y-q.y,d2=dx*dx+dy*dy+.01,d=Math.sqrt(d2),f=2600/d2;p.vx+=dx/d*f;p.vy+=dy/d*f;q.vx-=dx/d*f;q.vy-=dy/d*f}
+    E.forEach(e=>{const dx=e.b.x-e.a.x,dy=e.b.y-e.a.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=(d-90)*.012*(1+e.w*.12);e.a.vx+=dx/d*f;e.a.vy+=dy/d*f;e.b.vx-=dx/d*f;e.b.vy-=dy/d*f});
+    N.forEach(o=>{o.vx+=(450-o.x)*.004;o.vy+=(320-o.y)*.006;o.x+=Math.max(-12,Math.min(12,o.vx*al));o.y+=Math.max(-12,Math.min(12,o.vy*al));o.vx*=.55;o.vy*=.55;o.x=Math.max(40,Math.min(860,o.x));o.y=Math.max(30,Math.min(610,o.y))});
+  }
+  PP.N=N;PP.ix=ix;PP.E=E;
+}
+function pDraw(){
+  const sel=PP.sel,nb=new Set();
+  if(sel){nb.add(sel);PP.E.forEach(e=>{if(e.a.n.name===sel)nb.add(e.b.n.name);if(e.b.n.name===sel)nb.add(e.a.n.name)})}
+  const col=n=>n.prof?"#ef6f8e":n.codes.length?"#6fcf6f":"#f28c38";
+  let s="";
+  PP.E.forEach(e=>{const hot=!sel||e.a.n.name===sel||e.b.n.name===sel;
+    s+='<line x1="'+e.a.x.toFixed(1)+'" y1="'+e.a.y.toFixed(1)+'" x2="'+e.b.x.toFixed(1)+'" y2="'+e.b.y.toFixed(1)+'" stroke="'+(e.msgs?"#4f9cf9":"#6b7280")+'" stroke-width="'+(1+Math.min(5,e.msgs*1.3+e.paras*.08)).toFixed(1)+'" opacity="'+(hot?(sel?.95:.55):.08)+'"/>'});
+  PP.N.forEach(o=>{const on=!sel||nb.has(o.n.name);
+    s+='<g class="nd" data-n="'+esc(o.n.name)+'" opacity="'+(on?1:.2)+'"><circle cx="'+o.x.toFixed(1)+'" cy="'+o.y.toFixed(1)+'" r="'+o.r.toFixed(1)+'" fill="'+col(o.n)+'" stroke="'+(o.n.name===sel?"#fff":"#0a0d12")+'" stroke-width="'+(o.n.name===sel?3:1.5)+'"/>'+
+      ((o.r>7||(sel&&on))?'<text x="'+(o.x+o.r+3).toFixed(1)+'" y="'+(o.y+4).toFixed(1)+'">'+esc(o.n.name)+"</text>":"")+"</g>"});
+  $("#psvg").innerHTML=s;pSide();
+}
+function pSide(){
+  const sel=PP.sel,box=$("#pside");
+  if(!sel){const iso=PP.N.filter(o=>!PP.E.some(e=>e.a===o||e.b===o));
+    box.innerHTML="<b>Nobody selected</b>"+(iso.length?"<h3>No connections at this threshold ("+iso.length+")</h3>"+iso.map(o=>'<a class="pill" data-pn="'+esc(o.n.name)+'">'+esc(o.n.name)+"</a>").join(""):"");return}
+  const o=PP.ix[sel],n=o.n;
+  const con=PP.E.filter(e=>e.a===o||e.b===o).map(e=>({who:(e.a===o?e.b:e.a).n.name,msgs:e.msgs,paras:e.paras})).sort((x,y)=>y.msgs-x.msgs||y.paras-x.paras);
+  box.innerHTML='<b style="font-size:15px">'+esc(n.name)+"</b><div>"+(n.prof?'<span class="pill ok">has profile file</span>':'<span class="pill warn">no profile file</span>')+n.codes.map(c=>'<span class="pill">'+esc(c)+"</span>").join("")+"</div>"+
+   '<div class="sm mu" style="margin:6px 0">sent '+n.sent+" \u00b7 received "+n.recv+" \u00b7 appears in "+n.files+" files</div><h3>Connections ("+con.length+")</h3>"+
+   (con.map(c=>'<div><a data-pn="'+esc(c.who)+'">'+esc(c.who)+'</a> <span class="mu sm">'+(c.msgs?c.msgs+" msg \u00b7 ":"")+c.paras+" shared paragraphs</span></div>").join("")||'<span class="mu">none at this threshold</span>');
+}
+function pTable(){
+  const deg={};D.rel.edges.forEach(e=>{if(e.msgs||e.paras>=2){deg[e.a]=(deg[e.a]||0)+1;deg[e.b]=(deg[e.b]||0)+1}});
+  $("#ptab").innerHTML='<table><tr><th>Name</th><th>E-codes</th><th>Sent</th><th>Received</th><th>Files</th><th>Links</th><th></th></tr>'+
+   D.rel.nodes.slice().sort((a,b)=>b.files-a.files).map(n=>"<tr><td><a data-pn2=\""+esc(n.name)+'">'+esc(n.name)+"</a></td><td>"+n.codes.map(esc).join(", ")+"</td><td>"+n.sent+"</td><td>"+n.recv+"</td><td>"+n.files+"</td><td>"+(deg[n.name]||0)+"</td><td>"+(n.prof?'<span class="pill ok">profile</span>':'<span class="pill warn">no profile</span>')+((deg[n.name]||0)===0?'<span class="pill bad">isolated</span>':"")+"</td></tr>").join("")+"</table>";
+  $("#ptab").onclick=e=>{const a=e.target.closest("[data-pn2]");if(a){PP.sel=a.dataset.pn2;pDraw();$("#psvg").scrollIntoView({block:"nearest"})}};
+}
+
+/* ---------- coverage: phases, levels, lore terms ---------- */
+function rCoverage(){
+  const cats=Object.keys(D.cats).filter(k=>F.some(f=>f.cat===k));
+  const ph={};for(let p=0;p<=6;p++)ph[p]={files:new Set(),n:0,by:{},list:[]};
+  D.phases.forEach(r=>{const f=byId[r[0]];if(!f)return;const o=ph[r[1]];o.files.add(r[0]);o.n+=r[2];o.by[f.cat]=(o.by[f.cat]||0)+r[2];o.list.push([f,r[2]])});
+  window._PH=ph;
+  const maxN=Math.max(...Object.values(ph).map(o=>o.n)),used=cats.filter(k=>Object.values(ph).some(o=>o.by[k]));
+  let maxC=0;Object.values(ph).forEach(o=>used.forEach(k=>maxC=Math.max(maxC,o.by[k]||0)));
+  const phRows=Object.keys(ph).map(p=>{const o=ph[p];return '<tr><th class="r" style="text-align:left">Phase '+p+"</th><td style=\"width:auto;padding:0 8px\">"+o.files.size+'</td><td style="width:auto;text-align:left;padding:0 8px"><span class="bar" style="width:'+Math.round(o.n/maxN*130)+'px;background:#4f9cf9"></span> '+o.n+"</td>"+
+    used.map(k=>'<td class="'+(o.by[k]?"c":"")+'" data-ph="'+p+'" data-c="'+k+'" style="background:'+heat(o.by[k]||0,maxC,"79,156,249")+'">'+(o.by[k]||"")+"</td>").join("")+"</tr>"}).join("");
+  const LV=D.levels_cov,maxL=Math.max(...LV.map(l=>l.total));
+  const span=l=>{const f=l.own_file&&byId[l.own_file];const m=f&&f.c&&/^L(\d+)-(\d+)$/.exec(f.c);return m?(+m[2]-+m[1]+1):1};
+  const perk=LV.map(l=>l.own_file?l.total/Math.max(.5,l.own_words/span(l)/1000):null);
+  const maxP=Math.max(...perk.filter(x=>x!=null));
+  const lvRows=LV.map((l,i)=>{const f=l.own_file&&byId[l.own_file];
+    return "<tr><td><b>L"+l.level+"</b></td><td>"+(f?chip(f)+(span(l)>1?' <span class="pill">shared</span>':""):'<span class="pill bad">no file</span>')+"</td><td>"+(l.own_words?fmt(Math.round(l.own_words/span(l))):"")+"</td><td>"+l.files+"</td><td>"+l.total+"</td>"+
+      '<td style="background:'+heat(perk[i]||0,maxP,"239,111,142")+'">'+(perk[i]!=null?perk[i].toFixed(1):"")+"</td><td>"+Object.keys(l.mentions).sort((a,b)=>l.mentions[b]-l.mentions[a]).map(k=>'<span class="bar" title="'+esc(cat(k).label)+": "+l.mentions[k]+'" style="width:'+Math.max(2,Math.round(l.mentions[k]/maxL*260))+"px;background:"+cat(k).color+';height:10px;border-radius:0"></span>').join("")+"</td></tr>"}).join("");
+  $("#coverage").innerHTML='<h2>Phases 0&ndash;6 <span class="mu sm">&mdash; how much of the writing talks about each phase</span></h2>'+
+   '<div class="box" style="overflow:auto"><table class="mx"><tr><th></th><th class="v"><div>files</div></th><th class="v"><div>mentions</div></th>'+used.map(k=>'<th class="v"><div>'+esc(cat(k).label)+"</div></th>").join("")+"</tr>"+phRows+"</table></div><div id=\"phl\" class=\"box lst\" style=\"margin-top:8px;display:none\"></div>"+
+   '<h2>Facility levels <span class="mu sm">&mdash; own file size vs. how often the rest of the writing talks about the level</span></h2>'+
+   '<div class="box" style="overflow:auto"><table><tr><th>Level</th><th>Own file</th><th>Words / level</th><th>Files citing</th><th>Mentions</th><th title="mentions per 1,000 words of the level\'s own file; high = lots of attention, little written">Per 1k words</th><th>Who cites it</th></tr>'+lvRows+"</table></div>"+
+   '<div class="mu sm" style="margin-top:6px">Colour bars follow the category colours. A high &ldquo;per 1k words&rdquo; means other files lean on the level more than its own file covers.</div>'+
+   '<h2>Lore terms <span class="mu sm">&mdash; acronyms and codes; &ldquo;not in glossary&rdquo; = missing from 2.02 / 2.29</span></h2>'+
+   '<div style="margin-bottom:8px"><input type="search" id="tq" placeholder="filter terms"> <label><input type="checkbox" id="tu"> only terms the glossary does not define</label></div><div id="ttab" class="box lst" style="max-height:480px"></div>';
+  $("#coverage").onclick=e=>{const td=e.target.closest("td[data-ph]");if(!td)return;const o=ph[td.dataset.ph],c=td.dataset.c,b=$("#phl");b.style.display="block";
+    b.innerHTML="<b>Phase "+td.dataset.ph+" &middot; "+esc(cat(c).label)+"</b><br>"+o.list.filter(x=>x[0].cat===c).sort((a,b)=>b[1]-a[1]).map(x=>chip(x[0])+'<span class="mu sm">\u00d7'+x[1]+" </span>").join("")};
+  $("#tq").oninput=tmRender;$("#tu").onchange=tmRender;tmRender();
+}
+function tmRender(){
+  const q=$("#tq").value.toLowerCase(),u=$("#tu").checked,rows=D.terms.filter(t=>(!q||t.term.toLowerCase().includes(q))&&(!u||!t.defined)).slice(0,300);
+  $("#ttab").innerHTML="<table><tr><th>Term</th><th>Files</th><th>Uses</th><th>Glossary</th><th>First seen in</th></tr>"+rows.map(t=>"<tr><td><code>"+esc(t.term)+"</code></td><td>"+t.files+"</td><td>"+t.uses+"</td><td>"+(t.defined?'<span class="pill ok">defined</span>':'<span class="pill warn">not in glossary</span>')+"</td><td>"+(byId[t.first]?chip(byId[t.first]):"")+"</td></tr>").join("")+"</table>";
+}
+
+/* ---------- export ---------- */
+function rExport(){
+  $("#export").innerHTML='<h2>Diagrams as text</h2><div class="box mu">Paste <b>Mermaid</b> into any GitHub / Obsidian / Notion markdown block (<code>```mermaid</code>) or into mermaid.live. Run <b>Graphviz</b> files with <code>dot -Tsvg file.dot -o file.svg</code>. These are generated from the current scan.</div>'+
+   D.exports.map((x,i)=>'<div class="box" style="margin-top:10px"><b>'+esc(x.title)+'</b> <span class="mu sm">'+esc(x.name)+'</span><div style="margin:8px 0">'+
+     '<button class="btn" data-ex="'+i+'" data-k="mermaid" data-a="copy">Copy Mermaid</button> <button class="btn" data-ex="'+i+'" data-k="mermaid" data-a="save">Download .mmd</button> '+
+     '<button class="btn" data-ex="'+i+'" data-k="dot" data-a="copy">Copy Graphviz</button> <button class="btn" data-ex="'+i+'" data-k="dot" data-a="save">Download .dot</button></div>'+
+     "<details><summary>Preview Mermaid</summary><pre>"+esc(x.mermaid)+"</pre></details><details><summary>Preview Graphviz</summary><pre>"+esc(x.dot)+"</pre></details></div>").join("")+
+   '<h2>Database</h2><div class="box"><button class="btn" data-ex="sql" data-a="save">Download schema (.sql)</button> <span class="mu sm">the CREATE statements, to recreate the structure elsewhere. The data itself is in <code>writing-map/writing_map.db</code>.</span></div>';
+  $("#export").onclick=e=>{const b=e.target.closest("button[data-ex]");if(!b)return;
+    const sql=b.dataset.ex==="sql",x=sql?null:D.exports[+b.dataset.ex],txt=sql?D.sql:x[b.dataset.k],name=sql?"writing_map_schema.sql":x.name+(b.dataset.k==="dot"?".dot":".mmd");
+    if(b.dataset.a==="save"){saveText(name,txt)}else{const old=b.textContent;b.textContent=copyText(txt)?"Copied":"Copy failed - use Preview";setTimeout(()=>b.textContent=old,1400)}};
+}
+
+/* ---------- history ---------- */
+const ML={words:"words",files:"files",links:"explicit links",broken_refs:"broken refs",orphans:"orphan files",canon_violations:"canon violations",name_issues:"name / ID issues",undated_messages:"undated messages"};
+const GOOD_DOWN={broken_refs:1,orphans:1,canon_violations:1,name_issues:1,undated_messages:1};
+function spark(arr){
+  if(!arr.length)return "";
+  const W=140,H=30,xs=arr.map((a,i)=>arr.length>1?i/(arr.length-1)*(W-8)+4:W/2),vs=arr.map(a=>a[1]),mn=Math.min(...vs),mx=Math.max(...vs),y=v=>mx===mn?H/2:H-4-(v-mn)/(mx-mn)*(H-8);
+  return '<svg class="spark" width="'+W+'" height="'+H+'">'+(arr.length>1?'<polyline fill="none" stroke="#4f9cf9" stroke-width="1.6" points="'+arr.map((a,i)=>xs[i].toFixed(1)+","+y(a[1]).toFixed(1)).join(" ")+'"/>':"")+arr.map((a,i)=>'<circle cx="'+xs[i].toFixed(1)+'" cy="'+y(a[1]).toFixed(1)+'" r="2.4" fill="#4f9cf9"/>').join("")+"</svg>";
+}
+const dcol=t=>t.split("\n").map(l=>'<span class="'+(l.startsWith("@@")||l.startsWith("+++")||l.startsWith("---")?"h":l.startsWith("+")?"a":l.startsWith("-")?"d":"")+'">'+esc(l)+"</span>").join("\n");
+function rHistory(){
+  const ch={},rc={},M={};
+  D.changes.forEach(c=>(ch[c[0]]=ch[c[0]]||[]).push(c));
+  D.ref_changes.forEach(r=>(rc[r[0]]=rc[r[0]]||[]).push(r));
+  D.metrics.forEach(m=>(M[m[1]]=M[m[1]]||[]).push([m[0],m[2]]));
+  const trend=Object.keys(ML).filter(k=>M[k]).map(k=>{const a=M[k],cur=a[a.length-1][1],prev=a.length>1?a[a.length-2][1]:null,d=prev==null?null:cur-prev;
+    const dc=d==null||d===0?"mu":(GOOD_DOWN[k]?(d<0?"chg-a":"chg-d"):"mu");
+    return '<div class="card"><b>'+fmt(cur)+"</b><span>"+ML[k]+'</span><div class="sm '+dc+'">'+(d==null?"baseline":(d>0?"+":"")+fmt(d)+" vs previous")+"</div>"+spark(a)+"</div>"}).join("");
+  $("#history").innerHTML='<h2>Trends</h2><div class="cards">'+trend+"</div>"+
+   '<h2>Scan history</h2><div class="box"><span class="mu">Every build that finds a change stores a scan with a full copy of each changed file. Click a scan to see what changed, a line-by-line diff of every edited file, and which links appeared or disappeared. '+
+   "To print a file exactly as it was in an earlier scan: <code>python writing-map/build_map.py --cat &lt;scan#&gt; &quot;&lt;path&gt;&quot;</code> (or <code>git show &lt;commit&gt;:writing/&lt;path&gt;</code>).</span></div>"+
+   '<table style="margin-top:10px"><tr><th>#</th><th>When</th><th>Git</th><th>Files</th><th>Added</th><th>Modified</th><th>Deleted</th><th>Moved</th></tr>'+
+   D.scans.map(s=>'<tr><td><a data-scan="'+s.id+'">'+s.id+"</a></td><td>"+esc(s.ts.replace("T"," ").slice(0,16))+"</td><td><code>"+esc(s.commit||"-")+"</code></td><td>"+s.count+'</td><td class="chg-a">+'+s.added+'</td><td class="chg-m">~'+s.modified+'</td><td class="chg-d">-'+s.deleted+'</td><td class="chg-v">&gt;'+s.moved+"</td></tr>").join("")+
+   '</table><h2 id="chh"></h2><div id="chl" class="box lst" style="display:none;max-height:none"></div>';
+  const ids=D.scans.map(s=>s.id);
+  const showScan=id=>{
+    const l=ch[id]||[],first=id===ids[ids.length-1],prev=ids[ids.indexOf(id)+1],b=$("#chl");
+    $("#chh").textContent="Changes in scan #"+id;b.style.display="block";
+    if(first){b.innerHTML='<span class="mu">First scan: baseline of '+l.length+" files. Nothing to compare against yet.</span>";return}
+    if(!l.length){b.innerHTML='<span class="mu">No recorded changes.</span>';return}
+    const sym={added:["+","chg-a"],modified:["~","chg-m"],deleted:["-","chg-d"],moved:[">","chg-v"]};
+    let h=l.map(c=>{const k=sym[c[2]],dk=id+"|"+c[1];
+      if(c[2]==="modified")return D.diffs[dk]?'<details><summary><span class="'+k[1]+'">~</span> '+pchip(c[1])+' <span class="mu sm">'+esc(c[1])+'</span></summary><pre class="diff">'+dcol(D.diffs[dk])+"</pre></details>":'<div><span class="'+k[1]+'">~</span> '+pchip(c[1])+' <span class="mu sm">(no stored diff: this scan predates version storage)</span></div>';
+      if(c[2]==="deleted")return '<div><span class="'+k[1]+'">-</span> '+esc(c[1])+(prev?' <span class="mu sm">restore text: <code>--cat '+prev+' &quot;'+esc(c[1])+'&quot;</code></span>':"")+"</div>";
+      return '<div><span class="'+k[1]+'">'+k[0]+"</span> "+pchip(c[1])+(c[3]?' <span class="mu">&larr; '+esc(c[3])+"</span>":"")+"</div>"}).join("");
+    const r=rc[id]||[];
+    if(r.length)h+="<h3>Links gained / lost ("+r.length+")</h3>"+r.slice(0,200).map(x=>'<div><span class="'+(x[4]==="added"?"chg-a":"chg-d")+'">'+(x[4]==="added"?"+":"-")+"</span> "+esc(x[1].split("/").pop())+" &rarr; "+esc(x[2].split("/").pop())+' <span class="pill">'+esc(x[3])+"</span></div>").join("")+(r.length>200?'<div class="mu">+'+(r.length-200)+" more</div>":"");
+    b.innerHTML=h};
+  $("#history").onclick=e=>{const a=e.target.closest("[data-scan]");if(a)showScan(+a.dataset.scan)};
+  showScan(ids[0]);
+}
+
+/* ---------- facts ---------- */
+function rFacts(){
+  const FC=D.fact_conflicts||[],FA=D.facts||[];
+  const nConf=FC.length,nFacts=FA.length;
+  const byKey={};
+  FA.forEach(f=>{const k=f.subject+"\x00"+f.predicate;(byKey[k]=byKey[k]||[]).push(f)});
+  const confSet=new Set(FC.map(c=>c.subject+"\x00"+c.predicate));
+  const confHtml=FC.length?FC.map(c=>{
+    const entries=c.entries||[];
+    const vals=[...new Set(entries.map(e=>e.value))];
+    return '<div class="box" style="margin:6px 0"><div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">'+
+      '<span class="pill bad">conflict</span><b>'+esc(c.subject)+'</b><span class="mu">&mdash; '+esc(c.predicate)+'</span></div>'+
+      '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px">'+vals.map(v=>'<span class="pill">'+esc(v)+'</span>').join('')+'</div>'+
+      '<div class="lst" style="max-height:160px;overflow:auto">'+entries.map(e=>'<div style="margin:2px 0">'+
+        (byId[e.path]?chip(byId[e.path]):'<span class="pill">'+esc(e.path.split("/").pop())+'</span>')+
+        ' <span class="mu sm">line '+e.line_no+'</span> '+
+        '<span class="pill ok">'+esc(e.value)+'</span>'+
+        '<div class="mu sm" style="margin-left:4px">'+esc(e.raw||"")+'</div></div>').join('')+
+      '</div></div>'}).join('')
+    :'<div class="box"><span class="chg-a">No conflicts found.</span></div>';
+  const cleanHtml=Object.keys(byKey).filter(k=>!confSet.has(k)).sort().map(k=>{
+    const entries=byKey[k];const [subj,pred]=k.split("\x00");
+    const vals=[...new Set(entries.map(e=>e.value))];
+    return '<div style="display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid #e5e7eb">'+
+      '<b style="min-width:120px;flex-shrink:0">'+esc(subj)+'</b>'+
+      '<span class="mu" style="min-width:140px;flex-shrink:0">'+esc(pred)+'</span>'+
+      '<span class="pill ok">'+esc(vals[0])+'</span>'+
+      '<span class="mu sm">'+entries.length+' mention'+(entries.length===1?'':'s')+'</span></div>'}).join('');
+  $("#facts").innerHTML=
+    '<div class="cards">'+
+    card(nConf,"claim conflicts",nConf?"chg-d":"chg-a")+
+    card(nFacts,"total fact mentions")+
+    card(Object.keys(byKey).length,"distinct (subject, predicate) pairs")+
+    '</div>'+
+    '<h2>Conflicts <span class="mu sm">&mdash; same subject + predicate, different values in different files</span></h2>'+confHtml+
+    '<h2>Clean claims <span class="mu sm">&mdash; all files agree</span></h2>'+
+    (cleanHtml?'<div class="box">'+cleanHtml+'</div>':'<span class="mu">No consistent facts extracted yet.</span>');
+}
+
+const RENDER={overview:rOverview,graph:rGraph,people:rPeople,timeline:rTimeline,coverage:rCoverage,canon:rCanon,health:rHealth,matrix:rMatrix,explorer:rExplorer,erd:rErd,export:rExport,history:rHistory,facts:rFacts};
+(function boot(){
+  try{const ar=$("#ar");ar.checked=localStorage.getItem("wm_ar")==="1";ar.onchange=()=>localStorage.setItem("wm_ar",ar.checked?"1":"0");setInterval(()=>{if(ar.checked)location.reload()},8000)}catch(e){}
+  const h=location.hash.slice(1).split("/"),tab=RENDER[h[0]]?h[0]:"overview";
+  show(tab);
+  if(tab==="explorer"&&h[1]&&byId[+h[1]])openFile(+h[1]);
+})();
+
+</script>
+</body>
+</html>

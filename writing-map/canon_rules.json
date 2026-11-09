@@ -1,0 +1,107 @@
+{
+  "_help": "Canon rules for writing-map. Each rule extracts a value with a regex (first non-empty capture group) and compares it to 'allowed'. 'allowed' entries starting with @ are computed (@doc_count = number of in-world documents). Optional: 'line_filter' (line must match), 'line_exclude' (line must NOT match), 'flags': 'i', 'ignore_files' (path substrings). If a flagged value is really fine (e.g. a value from an earlier point in the timeline), add it to 'accepted' with a 'why' note instead of deleting the rule. The master reference file lives outside writing/, so it is never scanned.",
+  "rules": [
+    {
+      "id": "earth-labor-source",
+      "label": "Earth is Labor Source #349",
+      "pattern": "Earth\\s*(?:is|=|\\()?\\s*(?:Labor Source\\s*)?#\\s*(\\d+)|Earth[^.\\n|]{0,30}?Labor Source\\s*#\\s*(\\d+)",
+      "allowed": ["349"]
+    },
+    {
+      "id": "earth-stage",
+      "label": "Earth is Stage 2 of 5",
+      "pattern": "Stage\\s+(\\d)\\s+of\\s+5",
+      "line_filter": "Earth|#349|Labor Source 349",
+      "allowed": ["2"]
+    },
+    {
+      "id": "compliance-index",
+      "label": "Compliance index 98.3%",
+      "pattern": "[Cc]ompliance[^.\\n|%]{0,30}?(\\d{2}\\.\\d)\\s*%|(\\d{2}\\.\\d)\\s*%\\s*[Cc]ompliance",
+      "line_exclude": "#(?!349)\\d{3}|Stage 4 threshold|hire rate",
+      "allowed": ["98.3"]
+    },
+    {
+      "id": "resistance-index",
+      "label": "Resistance index 1.7%",
+      "pattern": "[Rr]esistance(?: [Ii]ndex)?[^.\\n|%]{0,30}?(\\d\\.\\d)\\s*%|(\\d\\.\\d)\\s*%\\s*[Rr]esistance",
+      "line_exclude": "#(?!349)\\d{3}|Labor Source|exceeding|Escalation|dropped from|post-deployment|at first contact|has been deployed|projected|\\(projected|Rogue|tribal",
+      "allowed": ["1.7"]
+    },
+    {
+      "id": "schedule-d-pages",
+      "label": "Schedule D is 94 pages",
+      "pattern": "(\\d{2,3})[- ]pages?",
+      "line_filter": "Schedule D",
+      "allowed": ["94"]
+    },
+    {
+      "id": "undeactivated-badges",
+      "label": "847 undeactivated badges",
+      "pattern": "\\b(\\d{3})\\s+(?:undeactivated\\s+|active\\s+|deactivated\\s+)?badges?",
+      "allowed": ["847"]
+    },
+    {
+      "id": "inventory-slots",
+      "label": "Inventory has 10 slots",
+      "pattern": "(\\d+|ten)[- ]slot inventory|inventory[^.\\n|]{0,20}?(\\d+|ten)[- ]slots?",
+      "flags": "i",
+      "allowed": ["10", "ten"]
+    },
+    {
+      "id": "doc-count",
+      "label": "Number of in-world documents matches the files on disk",
+      "pattern": "all (\\d+) in-world documents|\\(2\\.1[\\u2013-]2\\.(\\d+)\\)",
+      "allowed": ["@doc_count"]
+    },
+    {
+      "id": "rania-home",
+      "label": "Rania is from Nairobi",
+      "pattern": "Rania[^.\\n|]{0,60}?\\bfrom\\s+(Nairobi|Mombasa|Kisumu|Nakuru|Eldoret|Kampala|Dar es Salaam|Lagos|Accra)",
+      "allowed": ["Nairobi"]
+    },
+    {
+      "id": "rania-daughter",
+      "label": "Rania's daughter is Leila",
+      "pattern": "[Dd]aughter,? (?:is )?(?:named )?([A-Z][a-z]+)",
+      "line_filter": "Rania|Nairobi|Leila",
+      "allowed": ["Leila"]
+    },
+    {
+      "id": "tarek-home",
+      "label": "Tarek is from Alexandria",
+      "pattern": "Tarek[^.\\n|]{0,60}?\\bfrom\\s+(Alexandria|Cairo|Giza|Luxor|Aswan)",
+      "allowed": ["Alexandria"]
+    },
+    {
+      "id": "tarek-brother",
+      "label": "Tarek's brother is Khalid",
+      "pattern": "Tarek['\\u2019]s brother[,\\s]+(?:is\\s+|was\\s+|named\\s+|called\\s+)?([A-Z][a-z]+)|brother[^.\\n|]{0,15}name was ([A-Z][a-z]+)",
+      "allowed": ["Khalid"]
+    },
+    {
+      "id": "aiden-expansion",
+      "label": "AIDEN = Asset Identification & Data Extraction Node",
+      "pattern": "(Asset [A-Z][a-z]+ (?:&|and) Data [A-Z][a-z]+ Node)",
+      "allowed": ["Asset Identification and Data Extraction Node"]
+    },
+    {
+      "id": "director-name",
+      "label": "Branch Director is Maren Voss",
+      "pattern": "\\bMaren ([A-Z][a-z]+)",
+      "allowed": ["Voss"]
+    }
+  ],
+  "accepted": [
+    {"rule": "resistance-index", "value": "0.4", "path": "2.22", "why": "Example figure for a different planet in the Operations Manual."},
+    {"rule": "resistance-index", "value": "0.8", "path": "2.22", "why": "Labor Source #312 (post-EOD), not Earth."},
+    {"rule": "resistance-index", "value": "2.1", "path": "2.22", "why": "Example figure for a different planet in the Operations Manual."},
+    {"rule": "resistance-index", "value": "0.6", "path": "2.25", "why": "Case File for Labor Source #094, not Earth."},
+    {"rule": "compliance-index", "value": "96.7", "path": "C-01", "why": "Earlier in the timeline (Cycle 300 Q2); the index has been moving."},
+    {"rule": "compliance-index", "value": "96.4", "path": "C-06", "why": "Cycle 299 Q1, earlier in the timeline."},
+    {"rule": "compliance-index", "value": "96.8", "path": "Year 1 Review", "why": "Design-team Year 1 review, earlier in the timeline."},
+    {"rule": "resistance-index", "value": "1.6", "path": "C-06", "why": "Cycle 299 Q1, earlier in the timeline."},
+    {"rule": "resistance-index", "value": "1.6", "path": "Year 1 Review", "why": "Design-team Year 1 review, earlier in the timeline."}
+  ],
+  "accepted_names": []
+}
