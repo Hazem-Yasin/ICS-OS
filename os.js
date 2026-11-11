@@ -1067,22 +1067,9 @@ function strip(m) {
   const cls = m.folder === "held" ? "held" : m.folder === "sealed" ? "sealed" : m.folder === "drafts" ? "draft" : "";
   return '<div class="strip ' + cls + '">' + esc(m.status.replace(/\*/g, "")) + "</div>";
 }
-function drawRead() {
-  const m = byCode[M.sel], A = $("#hread"), hm = $("#hm");
-  if (!A) return;
-  hm.classList.toggle("reading", !!m);
-  if (!m) {
-    A.innerHTML = '<div class="hello">' + MARK + "<h2>" + esc(OSN.mail) + "</h2><div>Because you're worth the investment.</div>" +
-      '<p style="margin-top:22px;font-size:13px">Choose a message to read it. Use <b>j</b> and <b>k</b> to move, <b>/</b> to search.</p></div>';
-    return;
-  }
-  if (!mCan(m)) {
-    A.innerHTML = '<div class="denied"><div class="lock">' + esc(m.code) + "</div><h2>Outside your clearance</h2><div>This message is held at <b>" + esc(m.tier) +
-      "</b> level. Your account is signed in as " + esc(ROLE[S.role].label) + ".</div></div>";
-    return;
-  }
+function readHtml(m, back) {
   const mir = retained(m);
-  let h = '<div class="wrap"><button type="button" class="back" id="hback">&larr; Back to list</button><div>' + chips(m) + '<span class="chip c-code" style="background:transparent">' + esc(D.series[m.series] || "") + "</span></div>" +
+  let h = '<div class="wrap">' + (back ? '<button type="button" class="back" id="hback">&larr; Back to list</button>' : "") + '<div>' + chips(m) + '<span class="chip c-code" style="background:transparent">' + esc(D.series[m.series] || "") + "</span></div>" +
     "<h2>" + esc(m.subject) + "</h2>" +
     (mir ? '<div class="mirror"><div class="mtag">COPY</div><div><b>Retained copy. You were not an addressee.</b>The sender and the recipients were not told that this copy exists. It reached the Office of the Branch Director by CCN relay and was not requested.</div></div>' : "") +
     '<div class="hdr"><div><b>From</b><span>' + esc(m.from || "\u2014") + "</span></div>" +
@@ -1099,7 +1086,23 @@ function drawRead() {
   const rel = Array.from(new Set(m.out.concat(m.in))).filter(c => byCode[c] && mCan(byCode[c]));
   if (rel.length) h += '<div class="rel"><h5>Connected messages</h5>' + rel.map(c => '<a href="#" class="mref" title="' + esc(byCode[c].subject) + '">' + c + "</a>").join("") + "</div>";
   if (author()) h += '<div class="path">' + esc(m.path) + "</div>";
-  A.innerHTML = h + "</div>"; A.scrollTop = 0;
+  return h + "</div>";
+}
+function drawRead() {
+  const m = byCode[M.sel], A = $("#hread"), hm = $("#hm");
+  if (!A) return;
+  hm.classList.toggle("reading", !!m);
+  if (!m) {
+    A.innerHTML = '<div class="hello">' + MARK + "<h2>" + esc(OSN.mail) + "</h2><div>Because you're worth the investment.</div>" +
+      '<p style="margin-top:22px;font-size:13px">Choose a message to read it. Use <b>j</b> and <b>k</b> to move, <b>/</b> to search.</p></div>';
+    return;
+  }
+  if (!mCan(m)) {
+    A.innerHTML = '<div class="denied"><div class="lock">' + esc(m.code) + "</div><h2>Outside your clearance</h2><div>This message is held at <b>" + esc(m.tier) +
+      "</b> level. Your account is signed in as " + esc(ROLE[S.role].label) + ".</div></div>";
+    return;
+  }
+  A.innerHTML = readHtml(m, true); A.scrollTop = 0;
   $("#hback").onclick = () => { M.sel = ""; drawList(); drawRead(); };
 }
 function mSelect(code) {
@@ -1137,48 +1140,197 @@ function openDoc(no) {
 
 /* ---------------------------------------------------------------- Timeline ---- */
 /* [PROPOSAL] Story tracks from ICS-Writing/tools/timeline.json. Each entry is checked against
-   the account's clearance: an entry the account cannot open at all shows as a withheld row. */
+   the account's clearance: an entry the account cannot open at all shows as a withheld row.
+   Mail opens in this window with Previous / Next along the track; the tree opens to the entries of a track. */
 function timelineMount(w, id) {
-  const T = D.timeline.tracks;
-  const st = {id: (T.find(t => t.id === id) || T[0] || {}).id};
+  const T = D.timeline.tracks, B = w.body;
+  const st = {id: (T.find(t => t.id === id) || T[0] || {}).id, open: {}, mode: "track", i: -1, code: "", q: ""};
+  if (st.id) st.open[st.id] = true;
   w.setTitle("Timeline");
   const can = r => r.t === "m" ? !!byCode[r.id] && mCan(byCode[r.id]) : r.t === "d" ? !!DOC[r.id] && canDoc(DOC[r.id]) : author();
   const name = r => r.t === "m" ? byCode[r.id].subject : r.t === "d" ? DOC[r.id].title : r.title;
   const lab = r => r.t === "m" ? r.id : r.t === "d" ? "Doc " + r.id : "Scene " + r.id;
-  const view = tr => tr.groups.map(g => ({h: g.h, items: g.items.map(it => {
-    const ok = it.refs.filter(can), live = ok.length > 0;
-    if (!it.refs.length || it.refs.every(r => r.t === "s")) return author() ? {it, ok, live: true} : null;
-    return {it, ok, live};
-  }).filter(Boolean)})).filter(g => g.items.length);
-  const draw = () => {
-    const tr = T.find(t => t.id === st.id), vw = tr ? view(tr) : [];
-    const count = t => view(t).reduce((n, g) => n + g.items.length, 0);
-    w.body.innerHTML = '<div class="dr tl"><div class="dr-bar"><b class="nm">' + esc(tr ? tr.label : "Timeline") + '</b><span class="tl-bl">' + esc(tr ? tr.blurb : "") + "</span></div>" +
-      '<div class="dr-main"><div class="dr-tree"><h3>Tracks</h3>' +
-      T.map(t => '<button type="button" data-t="' + esc(t.id) + '" class="' + (t.id === st.id ? "on" : "") + '">' + ICON.folder + esc(t.label) + "<span class='n'>" + count(t) + "</span></button>").join("") + "</div>" +
-      '<div class="dr-files tl-list">' + (vw.length ? vw.map(g => '<h4 class="tl-h">' + esc(g.h) + "</h4>" + g.items.map(x => {
-        if (!x.live) return '<div class="tl-it dim"><div class="tl-t"></div><div class="tl-b"><div class="tl-x"><b>Access restricted</b> \u00b7 withheld at ' + esc(ROLE[S.role].label) + " clearance</div></div></div>";
-        return '<div class="tl-it"><div class="tl-t">' + esc(x.it.time || "") + '</div><div class="tl-b">' +
-          (x.it.text ? '<div class="tl-x">' + esc(x.it.text) + (x.it.sent ? ' <span class="tl-sent">(' + esc(x.it.sent) + ")</span>" : "") + "</div>" : "") +
-          x.it.refs.map(r => can(r)
-            ? (r.t === "s" ? '<div class="tl-ref sc"><b>' + esc(lab(r)) + "</b> " + esc(name(r)) + "</div>"
-              : '<a href="#" class="tl-ref" data-t="' + r.t + '" data-id="' + esc(r.id) + '"><b>' + esc(lab(r)) + "</b> " + esc(name(r)) + (!x.it.text && x.it.sent ? ' <span class="tl-sent">(' + esc(x.it.sent) + ")</span>" : "") + "</a>")
-            : r.t === "s" ? "" : '<div class="tl-ref lock"><b>' + esc(lab(r)) + "</b> restricted</div>").join("") +
-          "</div></div>";
-      }).join("")).join("") : '<div class="empty">Nothing on this track is open to this account.</div>') + "</div></div>" +
-      '<div class="dr-stat"><span>' + vw.reduce((n, g) => n + g.items.length, 0) + ' entries</span><span class="ok">Branch calendar: Day 0 is a Tuesday</span></div></div>';
-    const B = w.body;
-    B.querySelectorAll(".dr-tree button").forEach(b => b.onclick = () => { st.id = b.dataset.t; draw(); });
-    B.querySelectorAll("a.tl-ref").forEach(a => a.onclick = e => {
-      e.preventDefault();
-      if (a.dataset.t === "d") { openDoc(a.dataset.id); return; }
-      const m = byCode[a.dataset.id];
-      if (!m || !mCan(m)) { modal("Outside your clearance", "<p>Message " + esc(a.dataset.id) + " is not available to " + esc(ROLE[S.role].label) + ".</p>"); return; }
-      const mw = openApp("mail", a.dataset.id); if (mw && mw.api && mw.api.open) mw.api.open(a.dataset.id);
-    });
+  const trk = () => T.find(t => t.id === st.id) || T[0];
+  /* Every entry of a track, in order, with what this account may open. */
+  const cache = {};
+  const flat = tr => {
+    if (cache[tr.id]) return cache[tr.id];
+    const out = [];
+    tr.groups.forEach(g => g.items.forEach(it => {
+      const ok = it.refs.filter(can);
+      if (!it.refs.length || it.refs.every(r => r.t === "s")) { if (!author()) return; out.push({h: g.h, it, ok, live: true}); }
+      else out.push({h: g.h, it, ok, live: ok.length > 0});
+    }));
+    out.forEach((x, i) => { x.i = i; x.mail = x.ok.find(r => r.t === "m"); });
+    return (cache[tr.id] = out);
   };
+  const short = x => {
+    if (!x.live) return "Access restricted";
+    const r = x.ok.find(r => r.t !== "s") || x.ok[0];
+    return r ? lab(r) + " \u00b7 " + name(r) : x.it.text;
+  };
+  const hay = x => x._h || (x._h = (x.h + " " + x.it.text + " " + x.ok.map(r => r.t === "m"
+    ? r.id + " " + byCode[r.id].subject + " " + byCode[r.id].from + " " + byCode[r.id].txt
+    : r.t === "d" ? "doc " + r.id + " " + DOC[r.id].title : "scene " + r.id + " " + r.title).join(" ")).toLowerCase());
+  const seq = () => flat(trk()).filter(x => x.mail);
+  const pos = () => seq().findIndex(x => x.i === st.i);
+  const reading = () => st.mode === "read" && !st.q.trim();
+  const terms = () => st.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+
+  B.innerHTML = '<div class="dr tl"><div class="dr-bar"><b class="nm" id="tlname"></b><span class="tl-bl" id="tlbl"></span><span class="sp"></span>' +
+    '<button type="button" id="tlback" hidden>\u2190 List</button><button type="button" id="tlprev" hidden>\u25C0 Previous</button><span class="tl-pos" id="tlpos" hidden></span><button type="button" id="tlnext" hidden>Next \u25B6</button>' +
+    '<button type="button" id="tlall" title="Show every track with its entries">All tracks</button>' +
+    '<input type="search" id="tlq" placeholder="Search the timeline" autocomplete="off"></div>' +
+    '<div class="dr-main"><div class="dr-tree" id="tltree"></div><div class="dr-files tl-list" id="tlpane"></div></div>' +
+    '<div class="dr-stat" id="tlstat"></div></div>';
+  const tree = $("#tltree", B), pane = $("#tlpane", B), qi = $("#tlq", B);
+
+  const row = (x, tid, showDay) => {
+    if (!x.live) return '<div class="tl-it dim" data-tid="' + esc(tid) + '" data-i="' + x.i + '"><div class="tl-t"></div><div class="tl-b"><div class="tl-x"><b>Access restricted</b> \u00b7 withheld at ' + esc(ROLE[S.role].label) + " clearance</div></div></div>";
+    return '<div class="tl-it" data-tid="' + esc(tid) + '" data-i="' + x.i + '"><div class="tl-t">' + esc(x.it.time || "") + '</div><div class="tl-b">' +
+      (showDay ? '<div class="tl-sent">' + esc(x.h) + "</div>" : "") +
+      (x.it.text ? '<div class="tl-x">' + esc(x.it.text) + (x.it.sent ? ' <span class="tl-sent">(' + esc(x.it.sent) + ")</span>" : "") + "</div>" : "") +
+      x.it.refs.map(r => can(r)
+        ? (r.t === "s" ? '<div class="tl-ref sc"><b>' + esc(lab(r)) + "</b> " + esc(name(r)) + "</div>"
+          : '<a href="#" class="tl-ref" data-t="' + r.t + '" data-id="' + esc(r.id) + '"><b>' + esc(lab(r)) + "</b> " + esc(name(r)) + (!x.it.text && x.it.sent ? ' <span class="tl-sent">(' + esc(x.it.sent) + ")</span>" : "") + "</a>")
+        : r.t === "s" ? "" : '<div class="tl-ref lock"><b>' + esc(lab(r)) + "</b> restricted</div>").join("") +
+      "</div></div>";
+  };
+
+  const drawBar = () => {
+    const tr = trk(), rd = reading(), q = !!st.q.trim(), p = rd ? pos() : -1, s = rd ? seq() : [];
+    $("#tlname", B).textContent = q ? "Search" : st.mode === "all" ? "All tracks" : tr ? tr.label : "Timeline";
+    $("#tlbl", B).textContent = q ? "" : st.mode === "all" ? "Every track and its entries" : tr ? tr.blurb : "";
+    $("#tlback", B).hidden = !rd;
+    $("#tlprev", B).hidden = $("#tlnext", B).hidden = $("#tlpos", B).hidden = !rd;
+    $("#tlprev", B).disabled = p <= 0;
+    $("#tlnext", B).disabled = p < 0 || p >= s.length - 1;
+    $("#tlpos", B).textContent = p >= 0 ? "Message " + (p + 1) + " of " + s.length : "Not in this track";
+    $("#tlall", B).classList.toggle("on", st.mode === "all" && !q);
+  };
+  const drawTree = () => {
+    const top = tree.scrollTop;
+    tree.innerHTML = "<h3>Tracks</h3>" + T.map(t => {
+      const f = flat(t), op = !!st.open[t.id];
+      let h = '<button type="button" class="tk' + (t.id === st.id && st.mode !== "all" ? " on" : "") + '" data-t="' + esc(t.id) + '" aria-expanded="' + op + '"><span class="car">' + (op ? "\u25BE" : "\u25B8") + "</span>" + esc(t.label) + "<span class='n'>" + f.length + "</span></button>";
+      if (op) {
+        let last = null;
+        h += '<div class="tk-sub">' + f.map(x => {
+          const g = x.h !== last ? '<div class="tk-g">' + esc(x.h) + "</div>" : ""; last = x.h;
+          const cur = st.mode === "read" && t.id === st.id && x.i === st.i;
+          return g + '<button type="button" class="ent' + (cur ? " on" : "") + (x.live ? "" : " dim") + '" data-tid="' + esc(t.id) + '" data-i="' + x.i + '" title="' + esc(short(x)) + '"><span class="t">' + esc(x.live ? x.it.time || "" : "") + '</span><span class="l">' + esc(short(x)) + "</span></button>";
+        }).join("") + "</div>";
+      }
+      return h;
+    }).join("");
+    tree.scrollTop = top;
+  };
+  const drawPane = () => {
+    const tr = trk(), ts = terms();
+    pane.classList.toggle("tl-read", reading());
+    if (ts.length) {
+      const res = T.map(t => ({t, hits: flat(t).filter(x => x.live && ts.every(k => hay(x).includes(k)))})).filter(r => r.hits.length);
+      pane.innerHTML = res.length ? res.map(r => '<h4 class="tl-h">' + esc(r.t.label) + " \u00b7 " + r.hits.length + "</h4>" + r.hits.map(x => row(x, r.t.id, true)).join("")).join("")
+        : '<div class="empty">No entry matches \u201c' + esc(st.q.trim()) + "\u201d.</div>";
+      pane.scrollTop = 0; return;
+    }
+    if (st.mode === "read") {
+      const m = byCode[st.code];
+      pane.innerHTML = m && mCan(m) ? readHtml(m, false) : '<div class="empty">Outside your clearance.</div>';
+      pane.scrollTop = 0; return;
+    }
+    if (st.mode === "all") {
+      pane.innerHTML = T.map(t => {
+        const f = flat(t); let last = null;
+        return '<h4 class="tl-h tl-trk">' + esc(t.label) + " <span>" + f.length + ' entries</span></h4><div class="tl-blq">' + esc(t.blurb) + "</div>" +
+          f.map(x => {
+            const g = x.h !== last ? '<div class="tl-ag">' + esc(x.h) + "</div>" : ""; last = x.h;
+            return g + '<button type="button" class="tl-go' + (x.live ? "" : " dim") + '" data-tid="' + esc(t.id) + '" data-i="' + x.i + '"><span class="t">' + esc(x.live ? x.it.time || "" : "") + '</span><span class="l">' + esc(short(x)) + "</span></button>";
+          }).join("");
+      }).join("");
+      return;
+    }
+    let last = null;
+    const f = tr ? flat(tr) : [];
+    pane.innerHTML = f.length ? f.map(x => {
+      const hd = x.h !== last ? '<h4 class="tl-h">' + esc(x.h) + "</h4>" : ""; last = x.h;
+      return hd + row(x, tr.id, false);
+    }).join("") : '<div class="empty">Nothing on this track is open to this account.</div>';
+  };
+  const drawStat = () => {
+    const tr = trk(), q = st.q.trim();
+    $("#tlstat", B).innerHTML = "<span>" + (q ? pane.querySelectorAll(".tl-it").length + " matches" : st.mode === "all" ? T.reduce((n, t) => n + flat(t).length, 0) + " entries in " + T.length + " tracks" : (tr ? flat(tr).length : 0) + " entries") + '</span><span class="ok">Branch calendar: Day 0 is a Tuesday</span>';
+  };
+  const draw = () => { drawBar(); drawTree(); drawPane(); drawStat(); };
+  const reveal = (tid, i) => {
+    const el = pane.querySelector('.tl-it[data-tid="' + tid + '"][data-i="' + i + '"]');
+    if (el) { el.scrollIntoView({block: "center"}); el.classList.add("hit"); }
+  };
+  const clearQ = () => { st.q = ""; qi.value = ""; };
+
+  const readMail = (tid, i, code) => {
+    clearQ(); st.id = tid; st.open[tid] = true; st.mode = "read"; st.code = code;
+    const s = flat(T.find(t => t.id === tid)).filter(x => x.mail);
+    const hit = i >= 0 ? s.find(x => x.i === i) : s.find(x => x.mail.id === code);
+    st.i = hit ? hit.i : -1;
+    draw();
+    const on = tree.querySelector("button.ent.on"); if (on) on.scrollIntoView({block: "nearest"});
+  };
+  const openEntry = (tid, i) => {
+    const x = flat(T.find(t => t.id === tid))[i]; if (!x) return;
+    if (x.mail) { readMail(tid, i, x.mail.id); return; }
+    clearQ(); st.id = tid; st.open[tid] = true; st.mode = "track"; st.i = i;
+    draw(); reveal(tid, i);
+    const d = x.ok.find(r => r.t === "d"); if (d) openDoc(d.id);
+  };
+  const step = d => {
+    const s = seq(), p = pos(), n = p < 0 ? null : s[p + d];
+    if (n) readMail(st.id, n.i, n.mail.id);
+  };
+  const back = () => { const i = st.i, tid = st.id; st.mode = "track"; draw(); if (i >= 0) reveal(tid, i); };
+
+  tree.onclick = e => {
+    const b = e.target.closest("button"); if (!b) return;
+    if (b.classList.contains("ent")) { openEntry(b.dataset.tid, +b.dataset.i); return; }
+    const t = b.dataset.t, was = st.open[t] && st.id === t && st.mode !== "all";
+    st.open[t] = !was; clearQ();
+    if (!was) { st.id = t; st.mode = "track"; st.i = -1; }
+    draw();
+  };
+  pane.onclick = e => {
+    const go = e.target.closest("button.tl-go");
+    if (go) { openEntry(go.dataset.tid, +go.dataset.i); return; }
+    const a = e.target.closest("a.tl-ref");
+    if (!a) return;
+    e.preventDefault();
+    if (a.dataset.t === "d") { openDoc(a.dataset.id); return; }
+    const it = a.closest(".tl-it");
+    readMail(it.dataset.tid, +it.dataset.i, a.dataset.id);
+  };
+  /* Connected messages inside the reader open in this window too. */
+  B.addEventListener("click", e => {
+    const a = e.target.closest("a.mref");
+    if (!a || !pane.contains(a)) return;
+    e.preventDefault(); e.stopPropagation(); Sound.click();
+    const c = a.textContent.trim();
+    if (!byCode[c] || !mCan(byCode[c])) { modal("Outside your clearance", "<p>Message " + esc(c) + " is not available to " + esc(ROLE[S.role].label) + ".</p>"); return; }
+    readMail(st.id, -1, c);
+  });
+  $("#tlback", B).onclick = back;
+  $("#tlprev", B).onclick = () => step(-1);
+  $("#tlnext", B).onclick = () => step(1);
+  $("#tlall", B).onclick = () => { clearQ(); st.mode = st.mode === "all" ? "track" : "all"; draw(); };
+  qi.oninput = e => { st.q = e.target.value; drawBar(); drawPane(); drawStat(); };
+  w.el.addEventListener("keydown", e => {
+    if (e.target.tagName === "INPUT") { if (e.key === "Escape") { clearQ(); drawBar(); drawPane(); drawStat(); e.target.blur(); } return; }
+    if (e.key === "/") { e.preventDefault(); qi.focus(); return; }
+    if (!reading()) return;
+    if (e.key === "ArrowRight" || e.key === "j") step(1);
+    else if (e.key === "ArrowLeft" || e.key === "k") step(-1);
+    else if (e.key === "Escape") back();
+  });
   draw();
-  return {open: i => { if (T.some(t => t.id === i)) { st.id = i; draw(); } }};
+  return {open: i => { if (T.some(t => t.id === i)) { clearQ(); st.id = i; st.open[i] = true; st.mode = "track"; draw(); } }};
 }
 
 /* ------------------------------------------------------- ICS Cloud Drive ---- */
