@@ -1181,9 +1181,39 @@ function timelineMount(w, id) {
     '<button type="button" id="tlback" hidden>\u2190 List</button><button type="button" id="tlprev" hidden>\u25C0 Previous</button><span class="tl-pos" id="tlpos" hidden></span><button type="button" id="tlnext" hidden>Next \u25B6</button>' +
     '<button type="button" id="tlall" title="Show every track with its entries">All tracks</button>' +
     '<input type="search" id="tlq" placeholder="Search the timeline" autocomplete="off"></div>' +
-    '<div class="dr-main"><div class="dr-tree" id="tltree"></div><div class="dr-files tl-list" id="tlpane"></div></div>' +
+    '<div class="dr-main"><div class="dr-tree" id="tltree"></div><div class="tl-split" id="tlsplit" role="separator" aria-orientation="vertical" tabindex="0" title="Drag to resize the tracks menu. Double-click to reset."></div><div class="dr-files tl-list" id="tlpane"></div></div>' +
     '<div class="dr-stat" id="tlstat"></div></div>';
   const tree = $("#tltree", B), pane = $("#tlpane", B), qi = $("#tlq", B);
+  /* Width of the tracks menu: drag the divider, use the arrow keys on it, or double-click to reset. Kept between sessions. */
+  const main = $(".dr-main", B), split = $("#tlsplit", B), TLW = 250, TLMIN = 130;
+  const tlMax = () => Math.max(TLMIN, Math.min(640, main.clientWidth - 260));
+  const setW = (px, keep) => {
+    const v = Math.round(Math.max(TLMIN, Math.min(tlMax(), px)));
+    main.style.setProperty("--tlw", v + "px");
+    split.setAttribute("aria-valuenow", v);
+    if (keep) { S.tlw = v; save(); }
+    return v;
+  };
+  setW(S.tlw || TLW);
+  split.onpointerdown = e => {
+    e.preventDefault(); split.setPointerCapture(e.pointerId); split.classList.add("drag");
+    const x0 = e.clientX, w0 = tree.getBoundingClientRect().width;
+    split.onpointermove = m => setW(w0 + m.clientX - x0);
+    split.onpointerup = split.onpointercancel = u => {
+      split.onpointermove = split.onpointerup = split.onpointercancel = null;
+      split.classList.remove("drag"); try { split.releasePointerCapture(u.pointerId); } catch (_) {}
+      setW(tree.getBoundingClientRect().width, true);
+    };
+  };
+  split.ondblclick = () => setW(TLW, true);
+  split.onkeydown = e => {
+    const cur = tree.getBoundingClientRect().width, d = e.shiftKey ? 60 : 20;
+    if (e.key === "ArrowLeft") { e.preventDefault(); e.stopPropagation(); setW(cur - d, true); }
+    else if (e.key === "ArrowRight") { e.preventDefault(); e.stopPropagation(); setW(cur + d, true); }
+    else if (e.key === "Home") { e.preventDefault(); e.stopPropagation(); setW(TLMIN, true); }
+    else if (e.key === "End") { e.preventDefault(); e.stopPropagation(); setW(tlMax(), true); }
+  };
+  if (window.ResizeObserver) new ResizeObserver(() => { const cur = parseInt(main.style.getPropertyValue("--tlw"), 10); if (cur > tlMax()) setW(tlMax()); }).observe(main);
 
   const row = (x, tid, showDay) => {
     if (!x.live) return '<div class="tl-it dim" data-tid="' + esc(tid) + '" data-i="' + x.i + '"><div class="tl-t"></div><div class="tl-b"><div class="tl-x"><b>Access restricted</b> \u00b7 withheld at ' + esc(ROLE[S.role].label) + " clearance</div></div></div>";

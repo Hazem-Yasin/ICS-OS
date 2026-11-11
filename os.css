@@ -1366,3 +1366,11 @@ a.tl-ref:hover{background:var(--hover)}
 .tl-list button.tl-go.dim{color:var(--muted);font-style:italic;cursor:default}
 .tl-it[data-i] .tl-x b{font-weight:700}
 @container (max-width:640px){ .tl .dr-main{grid-template-columns:1fr} .tl .dr-tree{display:block;max-height:34%;border-right:0;border-bottom:1px solid var(--line)} .tl .dr-main{grid-template-rows:auto 1fr} }
+
+/* Timeline: resizable tracks menu */
+.tl .dr-main{grid-template-columns:var(--tlw,250px) 6px minmax(0,1fr)}
+.tl .dr-tree{min-width:0}
+.tl-split{cursor:col-resize;background:var(--line);position:relative;touch-action:none;outline:none}
+.tl-split::after{content:"";position:absolute;inset:0 -4px;}
+.tl-split:hover,.tl-split.drag,.tl-split:focus-visible{background:var(--gold)}
+@container (max-width:640px){ .tl .dr-main{grid-template-columns:1fr} .tl-split{display:none} }
