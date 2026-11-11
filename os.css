@@ -128,13 +128,13 @@ html[data-theme="mint"], .rc[data-theme="mint"]{
   --desk-bg:radial-gradient(circle at 50% 45%, #2f7a70 0%, #1f4f4a 55%, #0a1f1c 100%);
 }
 html[data-theme="dusk"], .rc[data-theme="dusk"]{
-  --blue:#2a1f4d; --blue2:#b794f6; --head:#e6dcff; --gold:#b794f6; --gold-soft:#3a2d66; --on-soft:#dccbff;
+  --blue:#4b3a8f; --blue2:#b794f6; --head:#e6dcff; --gold:#b794f6; --gold-soft:#3a2d66; --on-soft:#dccbff;
   --paper:#1a1330; --card:#221a3d; --white:#2b2150; --line:#3d3170; --ink:#ece6ff; --muted:#a89bd0;
   --hover:#31265c; --code:#35295f; --quote:#2b2150; --quote2:#35295f; --writer:#2d2450;
   --desk-bg:radial-gradient(circle at 50% 45%, #2e2258 0%, #1a1330 55%, #07040f 100%);
 }
 html[data-theme="slate"], .rc[data-theme="slate"]{
-  --blue:#1f2733; --blue2:#5cc8ff; --head:#e4ecf5; --gold:#5cc8ff; --gold-soft:#16384d; --on-soft:#bfe8ff;
+  --blue:#2f5273; --blue2:#5cc8ff; --head:#e4ecf5; --gold:#5cc8ff; --gold-soft:#16384d; --on-soft:#bfe8ff;
   --paper:#14181f; --card:#1c222c; --white:#232a36; --line:#323b4b; --ink:#e6ebf2; --muted:#97a3b5;
   --hover:#273040; --code:#2a3342; --quote:#232a36; --quote2:#2a3342; --writer:#222b36;
   --desk-bg:radial-gradient(circle at 50% 45%, #232c3a 0%, #14181f 55%, #050608 100%);
@@ -145,6 +145,20 @@ html[data-theme="contrast"], .rc[data-theme="contrast"]{
   --hover:#ffef9a; --code:#eeeeee; --quote:#f2f2f2; --quote2:#e6e6e6; --writer:#fff8c9;
   --desk-bg:#000000;
 }
+
+/* dark themes: the Aero ribbon, grid header and sunken-border colours follow the palette instead of staying light */
+html[data-theme="dusk"], html[data-theme="slate"], html[data-theme="access"], html[data-theme="amber"], html[data-theme="matrix"],
+html[data-role="access"]:not([data-theme]){
+  --ribbon-bg:linear-gradient(180deg, var(--card) 0%, var(--paper) 100%);
+  --ribbon-btn:linear-gradient(180deg, var(--hover) 0%, var(--card) 100%);
+  --ribbon-btn-h:linear-gradient(180deg, var(--quote2) 0%, var(--hover) 100%);
+  --grid-th:linear-gradient(180deg, var(--hover) 0%, var(--card) 100%);
+  --sunken-border:var(--line);
+}
+html[data-theme="dusk"] .hm nav, html[data-theme="slate"] .hm nav, html[data-theme="dusk"] .dr-tree, html[data-theme="slate"] .dr-tree,
+html[data-theme="dusk"] .fo-out, html[data-theme="slate"] .fo-out{background:var(--card)}
+html[data-theme="dusk"] .hm-stat, html[data-theme="slate"] .hm-stat, html[data-theme="dusk"] .dr-stat, html[data-theme="slate"] .dr-stat{background:var(--card)}
+
 
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -223,7 +237,7 @@ body[data-phase="desk"] #desk{display:block}
 .os-brand-left{display:flex;flex-direction:column;gap:2px}
 .os-corp-logo{display:flex;align-items:center;gap:8px}
 .os-corp-logo svg{width:24px;height:24px;color:var(--gold)}
-.os-corp-logo span{font-size:18px;font-weight:800;letter-spacing:.08em;color:var(--blue)}
+.os-corp-logo span{font-size:18px;font-weight:800;letter-spacing:.08em;color:var(--head)}
 .os-corp-title{font-size:12px;font-weight:700;color:#2a3a55;letter-spacing:.02em}
 .os-corp-motto{font-size:11px;font-style:italic;color:#6b5d44}
 .os-brand-right{text-align:right}
@@ -235,7 +249,7 @@ body[data-phase="desk"] #desk{display:block}
 .os-roles-sidebar{
   background:#f2eee3;border-right:2px groove #d8cfb9;padding:12px 10px;display:flex;flex-direction:column;gap:6px;
 }
-.os-sidebar-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--blue);letter-spacing:.05em;padding:0 2px 2px}
+.os-sidebar-label{font-size:11px;font-weight:700;text-transform:uppercase;color:var(--head);letter-spacing:.05em;padding:0 2px 2px}
 .os-roles-listbox{
   background:#ffffff;border:2px solid;border-color:#726b5d #fcf9f2 #fcf9f2 #726b5d;
   padding:3px;display:flex;flex-direction:column;gap:2px;max-height:340px;overflow-y:auto;
@@ -260,7 +274,7 @@ body[data-phase="desk"] #desk{display:block}
 .os-retro-group{
   border:2px groove #d8cfb9;border-radius:2px;padding:10px 12px;margin:0;background:#fbf8f1;
 }
-.os-retro-legend{font-size:11px;font-weight:700;color:var(--blue);padding:0 5px;letter-spacing:.04em}
+.os-retro-legend{font-size:11px;font-weight:700;color:var(--head);padding:0 5px;letter-spacing:.04em}
 
 .os-user-hero{display:flex;align-items:center;gap:12px}
 .os-hero-avatar{width:48px;height:48px;flex:none}
@@ -1113,9 +1127,9 @@ html[data-role="access"]:not([data-theme]) ::-webkit-scrollbar-button:single-but
 :where(html:not([data-skin="aero"])) .win .wb{width:24px;height:22px}
 :where(html:not([data-skin="aero"])) .mbx .mt{font-size:12.5px;padding:8px 12px}
 :where(html:not([data-skin="aero"])) #start .hd{border-bottom:2px solid var(--gold)}
-:where(html:not([data-skin="aero"])) .mbx .mt svg{width:18px;height:18px;flex:none;vertical-align:-4px}
-:where(html:not([data-skin="aero"])) .os-theme-dialog{max-height:92vh;display:flex;flex-direction:column}
-:where(html:not([data-skin="aero"])) .os-theme-dialog .mb{overflow-y:auto;min-height:0}
+.mbx .mt svg{width:18px;height:18px;flex:none;vertical-align:-4px}
+.os-theme-dialog{max-height:92vh;display:flex;flex-direction:column}
+.os-theme-dialog .mb{overflow-y:auto;min-height:0}
 .os-theme-dialog .mf{flex:none}
 .os-skin-group{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .os-skin-opt{
@@ -1132,7 +1146,7 @@ html[data-role="access"]:not([data-theme]) ::-webkit-scrollbar-button:single-but
 /* brand banner: the app's header row reads like the "ICS / Interplanetary Corporate Solutions" strip */
 :where(html:not([data-skin="aero"])) .hm-bar,:where(html:not([data-skin="aero"])) .dr-bar,:where(html:not([data-skin="aero"])) .fo-bar{background:var(--card);border-bottom:2px groove var(--line);padding:10px 14px;gap:10px;min-height:48px}
 :where(html:not([data-skin="aero"])) .hm-bar svg{width:26px;height:26px;color:var(--gold)}
-:where(html:not([data-skin="aero"])) .hm-bar b,:where(html:not([data-skin="aero"])) .fo-bar .nm{font-size:18px;font-weight:800;letter-spacing:.08em;color:var(--blue)}
+:where(html:not([data-skin="aero"])) .hm-bar b,:where(html:not([data-skin="aero"])) .fo-bar .nm{font-size:18px;font-weight:800;letter-spacing:.08em;color:var(--head)}
 :where(html:not([data-skin="aero"])) .hm-bar .tgl{font-size:12px;font-weight:700;color:var(--head);letter-spacing:.02em}
 
 /* buttons: the 28px bevelled button of the dialog */
@@ -1148,11 +1162,11 @@ html[data-role="access"]:not([data-theme]) ::-webkit-scrollbar-button:single-but
 /* panes: face-coloured sidebar well, white list, groove between sections */
 :where(html:not([data-skin="aero"])) .hm-main,:where(html:not([data-skin="aero"])) .dr-main,:where(html:not([data-skin="aero"])) .fo-main{padding:10px 12px;gap:10px;background:var(--face)}
 :where(html:not([data-skin="aero"])) .hm nav,:where(html:not([data-skin="aero"])) .dr-tree,:where(html:not([data-skin="aero"])) .fo-out{background:var(--card);padding:10px}
-:where(html:not([data-skin="aero"])) .hm nav h3,:where(html:not([data-skin="aero"])) .dr-tree h3,:where(html:not([data-skin="aero"])) .fo-out h3{margin:12px 0 6px;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--blue);text-transform:uppercase}
+:where(html:not([data-skin="aero"])) .hm nav h3,:where(html:not([data-skin="aero"])) .dr-tree h3,:where(html:not([data-skin="aero"])) .fo-out h3{margin:12px 0 6px;font-size:11px;font-weight:700;letter-spacing:.05em;color:var(--head);text-transform:uppercase}
 :where(html:not([data-skin="aero"])) .hm nav h3:first-child{margin-top:0}
 :where(html:not([data-skin="aero"])) .hm nav button,:where(html:not([data-skin="aero"])) .dr-tree button{padding:7px 8px;font-size:12px;font-weight:700;color:var(--head)}
 :where(html:not([data-skin="aero"])) .hm nav button.on,:where(html:not([data-skin="aero"])) .dr-tree button.on{color:#fff}
-:where(html:not([data-skin="aero"])) .hm nav button.on .n,:where(html:not([data-skin="aero"])) .dr-tree button.on .n{color:var(--gold-soft);opacity:1}
+:where(html:not([data-skin="aero"])) .hm nav button.on .n,:where(html:not([data-skin="aero"])) .dr-tree button.on .n{color:inherit;opacity:.85}
 :where(html:not([data-skin="aero"])) .listbar{background:var(--card);padding:8px 12px}
 :where(html:not([data-skin="aero"])) .item{padding:10px 12px 11px 14px}
 :where(html:not([data-skin="aero"])) .item .subj{font-size:12.5px}
@@ -1307,3 +1321,18 @@ html[data-role="access"]:not([data-theme]) ::-webkit-scrollbar-button:single-but
 }
 
 @media print{ body *{display:none!important} body::before{content:"ICS Cloud files cannot be printed from this device.";display:block;padding:40px;font:16px sans-serif} }
+
+/* Timeline app */
+.tl-bl{color:var(--muted);font-size:12px;margin-left:10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl-list{padding:0 0 18px}
+.tl-h{margin:0;padding:8px 14px 5px;font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--head);background:var(--card);border-bottom:1px solid var(--line);border-top:1px solid var(--line);position:sticky;top:0;z-index:1}
+.tl-it{display:grid;grid-template-columns:62px 1fr;gap:6px;padding:7px 14px;border-bottom:1px solid var(--line);font-size:12.5px;color:var(--ink)}
+.tl-t{font-variant-numeric:tabular-nums;color:var(--muted);padding-top:1px}
+.tl-x{line-height:1.45;margin-bottom:2px}
+.tl-sent{color:var(--muted);font-size:11.5px}
+.tl-ref{display:block;padding:2px 0;color:var(--blue);text-decoration:none;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl-ref b{font-weight:700;margin-right:4px}
+a.tl-ref:hover{background:var(--hover)}
+.tl-ref.sc{color:var(--muted);cursor:default}
+.tl-ref.lock,.tl-it.dim{color:var(--muted)}
+.tl-it.dim .tl-x{font-style:italic}

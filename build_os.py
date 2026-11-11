@@ -3,7 +3,7 @@
 build_os.py - builds ICS-OS (version 0.1), the in-world operating system of the
 ICS Earth Branch personal device and terminals.
 
-It gathers the data for three apps and writes one self-contained offline page:
+It gathers the data for four apps and writes one self-contained offline page:
 
     ics-os.html          (generated - do not edit by hand)
 
@@ -11,6 +11,7 @@ It gathers the data for three apps and writes one self-contained offline page:
                                      (parsed by build_mail.py in this folder)
   ICS Cloud Drive  file explorer     the documents in ICS-Writing/canon/documents
   Folio            document viewer   the same documents, gated by clearance
+  Timeline         story tracks      ICS-Writing/tools/timeline.json, checked against the messages and documents
 
 The page itself lives in os_template.html, os.css and os.js (same folder), which
 this script inlines. It reads the writing repo directly: a sibling folder called
@@ -86,6 +87,8 @@ DOCS = {
     52: (OPEN, F_OPS), 53: (PTKW, F_OPS), 54: (PTKW, F_OPS), 55: (OPEN, F_OPS), 56: (OPEN, F_OPS),
     57: (OPEN, F_OPS), 58: (OPEN, F_OPS), 59: (PTKW, F_OPS), 60: (BOARD, F_OPS), 61: (PTKW, F_OPS),
     62: (OPEN, F_OPS),
+    # 2.63 is sealed with 2.49: two readers (Research Team, Branch Manager). See SPECIAL.
+    63: (BOARD, F_RES),
 }
 # Files that sit outside the tier ladder: only the listed accounts may open them.
 SPECIAL = {
@@ -93,6 +96,7 @@ SPECIAL = {
     39: ["all"],                                 # "It does not exist in the ICS system. It was found by you."
     42: ["access", "all"],                       # "The three-tier system does not apply."
     49: ["research", "director", "access", "all"],  # SEALED. Readers: Research Team, Branch Manager, EOD.
+    63: ["research", "director", "access", "all"],  # SEALED. EOD's pencil sheet; readers: Research Team, Branch Manager.
     51: ["research", "director", "access", "all"],  # Form GOV-PDR-002-BM. Readers: Research Team (authors), Branch Director, Board.
 }
 FOLDER_ORDER = [F_REC, F_HND, F_OPS, F_GOV, F_RES, F_BRD, F_OUT]
@@ -288,6 +292,89 @@ def source_stamp():
         h = zlib.crc32(f.read_bytes(), h)
     return "%08x" % h
 
+WEEKDAYS = ["Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "Monday"]  # Day 0 is a Tuesday (TIME_MODEL 1.1)
+WEEK_RE = re.compile(r"Week\s+(\d+),\s*([A-Za-z]+)")
+
+
+def build_timeline(msgs, docs):
+    """[PROPOSAL] Tracks for the Timeline app, from ICS-Writing/tools/timeline.json.
+    Each ref is checked against the real messages, documents and scenes; anything that is not
+    found is reported and dropped. Dates not given in the JSON come from the message itself."""
+    path = bm.WRITING / "tools" / "timeline.json"
+    if not path.exists():
+        print("WARNING: no timeline.json in the writing repo; the Timeline app will be empty")
+        return {"tracks": []}
+    src = json.loads(path.read_text(encoding="utf-8"))
+    by_code = {m["code"]: m for m in msgs}
+    doc_nos = {d["no"] for d in docs}
+    scenes = {}
+    for f in sorted((bm.WRITING / "story" / "scenes").glob("*.md")):
+        mm = re.match(r"(1\.\d+)\b", f.name)
+        if mm:
+            first = f.read_text(encoding="utf-8", errors="replace").lstrip("\ufeff").split("\n", 1)[0]
+            scenes[mm.group(1)] = re.sub(r"^#\s*[\d.]+\s*[\u2014\u2013-]\s*", "", first).strip()
+
+    def msg_day(m):
+        mm = re.search(r"\bD(\d+)$", m["ds"])
+        return int(mm.group(1)) if mm and m["sort"][0] == 300 and m["sort"][1] == 4 else None
+
+    tracks, bad = [], []
+    for tr in src["tracks"]:
+        groups = []
+        for it in tr["items"]:
+            refs, first = [], None
+            for r in it.get("refs", []):
+                if r.startswith("scene:"):
+                    no = r[6:]
+                    if no in scenes:
+                        refs.append({"t": "s", "id": no, "title": scenes[no]})
+                    else:
+                        bad.append(tr["id"] + ": " + r)
+                elif r in by_code:
+                    refs.append({"t": "m", "id": r})
+                    first = first or by_code[r]
+                elif r in doc_nos:
+                    refs.append({"t": "d", "id": r})
+                else:
+                    bad.append(tr["id"] + ": " + r)
+            day, time, sent = it.get("day"), it.get("time", ""), None
+            if first is not None:
+                md = msg_day(first)
+                if day is None:
+                    day = md
+                    time = time or first["clock"]
+                elif md is not None and md != day:
+                    sent = "message dated Day %d" % md
+                elif md == day:
+                    time = time or first["clock"]
+            if it.get("when"):
+                head = it["when"]
+            elif day is not None:
+                head = "Day %d \u00b7 %s" % (day, WEEKDAYS[day % 7])
+            elif first is not None:
+                wk = WEEK_RE.search(first["date"])
+                cq = re.match(r"C(\d+) Q(\d)", first["ds"])
+                if wk and cq:
+                    head = "Cycle %s Q%s \u00b7 Week %s, %s" % (cq.group(1), cq.group(2), wk.group(1), wk.group(2))
+                    time = time or first["clock"]
+                elif cq:
+                    dd = re.search(r"\bD(\d+)$", first["ds"])
+                    head = "Cycle %s Q%s" % (cq.group(1), cq.group(2)) + (" \u00b7 Day %s" % dd.group(1) if dd else "")
+                    time = time or first["clock"]
+                else:
+                    head = "Undated"
+            else:
+                head = "Undated"
+            item = {"time": time, "text": it.get("text", ""), "sent": sent, "refs": refs}
+            if groups and groups[-1]["h"] == head:
+                groups[-1]["items"].append(item)
+            else:
+                groups.append({"h": head, "items": [item]})
+        tracks.append({"id": tr["id"], "label": tr["label"], "blurb": tr.get("blurb", ""), "groups": groups})
+    if bad:
+        print("WARNING: timeline.json refers to things that do not exist: " + ", ".join(bad))
+    return {"tracks": tracks}
+
 
 def build(now=None, out_path=OUT_PATH):
     now = now or datetime.datetime.now().astimezone().isoformat(timespec="seconds")
@@ -302,12 +389,13 @@ def build(now=None, out_path=OUT_PATH):
     docs, missing = collect_docs(known)
     if missing:
         print("WARNING: not in the Cloud Drive until they have a line in DOCS: " + ", ".join(missing))
+    timeline = build_timeline(msgs, docs)
 
     payload = json.dumps({
         "os": {"name": OS_NAME, "version": OS_VERSION, "cloud": CLOUD_NAME, "docs": DOCS_NAME, "mail": bm.SYSTEM_NAME},
         "generated": now, "scan": scan_id, "tiers": TIER_NAMES,
         "series": bm.SERIES, "roles": ROLES, "people": people, "msgs": msgs,
-        "docs": docs, "folders": FOLDER_ORDER,
+        "docs": docs, "folders": FOLDER_ORDER, "timeline": timeline,
     }, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/")
 
     page = (HERE / "os_template.html").read_text(encoding="utf-8")

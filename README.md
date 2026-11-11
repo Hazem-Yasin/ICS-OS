@@ -1,6 +1,6 @@
 # ICS-OS
 
-The in-world operating system for ICS Earth Branch: Hearth mail, ICS Cloud Drive and Folio, in one static page (`ics-os.html`). Deployed on Vercel as a plain static site; `/` serves `ics-os.html`.
+The in-world operating system for ICS Earth Branch: Hearth mail, ICS Cloud Drive, Folio and Timeline, in one static page (`ics-os.html`). Deployed on Vercel as a plain static site; `/` serves `ics-os.html`.
 
 ## Build
 

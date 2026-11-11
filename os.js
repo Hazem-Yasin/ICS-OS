@@ -225,6 +225,9 @@ const ICON = {
     '<path d="M17 26h6l2 2.5h8V35H17z" fill="#C9A84C" stroke="#1A2E52" stroke-width="2" stroke-linejoin="round"/></svg>',
   doc: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M11 5h20l9 9v29H11z" fill="#F4EEE1" stroke="#1A2E52" stroke-width="2.5" stroke-linejoin="round"/>' +
     '<path d="M31 5v9h9" fill="#C9A84C" stroke="#1A2E52" stroke-width="2.5" stroke-linejoin="round"/><path d="M17 22h18M17 28h18M17 34h11" stroke="#1A2E52" stroke-width="2.5" stroke-linecap="round"/></svg>',
+  timeline: '<svg viewBox="0 0 48 48" aria-hidden="true"><path d="M8 24h32" stroke="#1A2E52" stroke-width="2.5" stroke-linecap="round"/>' +
+    '<circle cx="12" cy="24" r="5" fill="#F4EEE1" stroke="#1A2E52" stroke-width="2.5"/><circle cx="24" cy="24" r="5" fill="#C9A84C" stroke="#1A2E52" stroke-width="2.5"/><circle cx="36" cy="24" r="5" fill="#F4EEE1" stroke="#1A2E52" stroke-width="2.5"/>' +
+    '<path d="M12 14v5M24 29v5M36 14v5" stroke="#1A2E52" stroke-width="2.5" stroke-linecap="round"/></svg>',
   file: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h8l5 5v15H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M14 2v5h5M9 13h7M9 17h7" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5h7l2 2.5h11V20H2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>',
   cloud: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 19a4.5 4.5 0 0 1-.7-8.9A6 6 0 0 1 17.8 9 5 5 0 0 1 18 19z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 14l2.2 2.2L15 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>',
@@ -593,13 +596,14 @@ function signOut() {
 const APPS = {
   mail: {title: OSN.mail, icon: ICON.mail, w: 1120, h: 700, single: true, mount: mailMount},
   drive: {title: OSN.cloud, icon: ICON.drive, w: 900, h: 560, single: true, mount: driveMount},
-  folio: {title: OSN.docs, icon: ICON.doc, w: 900, h: 700, single: false, mount: folioMount}
+  folio: {title: OSN.docs, icon: ICON.doc, w: 900, h: 700, single: false, mount: folioMount},
+  timeline: {title: "Timeline", icon: ICON.timeline, w: 980, h: 620, single: true, mount: timelineMount}
 };
 function startDesk() {
   document.body.dataset.phase = "desk";
   document.documentElement.dataset.role = S.role;
   $("#wall").innerHTML = MARK + '<div class="tg">Because You\'re Worth the Investment</div><div class="dev">ICS Earth Branch &middot; Personal device &middot; ' + esc(OSN.name) + " " + esc(OSN.version) + "</div>";
-  $("#icons").innerHTML = ["mail", "drive", "folio"].map(k =>
+  $("#icons").innerHTML = ["mail", "drive", "folio", "timeline"].map(k =>
     '<button type="button" class="ic" data-app="' + k + '">' + APPS[k].icon + esc(APPS[k].title) + "</button>").join("");
   $("#icons").querySelectorAll(".ic").forEach(b => {
     b.onclick = () => {
@@ -740,7 +744,7 @@ setInterval(() => {
 function drawStart() {
   const r = ROLE[S.role];
   $("#start").innerHTML = '<div class="hd">' + MARK + "<div><b>" + esc(r.label) + "</b><span>" + esc(OSN.name) + " " + esc(OSN.version) + "</span></div></div>" +
-    ["mail", "drive", "folio"].map(k => '<button type="button" data-app="' + k + '">' + APPS[k].icon + esc(APPS[k].title) + "</button>").join("") +
+    ["mail", "drive", "folio", "timeline"].map(k => '<button type="button" data-app="' + k + '">' + APPS[k].icon + esc(APPS[k].title) + "</button>").join("") +
     '<hr><button type="button" id="st-theme">' + ICON.palette + 'Themes &amp; Appearance\u2026</button>' +
     '<button type="button" id="st-search">' + ICON.search + 'Global Search\u2026</button>' +
     '<button type="button" id="st-about">' + ICON.info + "About " + esc(OSN.name) + '</button><button type="button" id="st-out">' + ICON.out + "Sign out</button>";
@@ -1129,6 +1133,52 @@ function openDoc(no) {
   const blank = WINS.find(w => w.app === "folio" && w.api && !w.api.no);
   if (blank) { blank.api.open(no); restoreWin(blank); return; }
   openApp("folio", no);
+}
+
+/* ---------------------------------------------------------------- Timeline ---- */
+/* [PROPOSAL] Story tracks from ICS-Writing/tools/timeline.json. Each entry is checked against
+   the account's clearance: an entry the account cannot open at all shows as a withheld row. */
+function timelineMount(w, id) {
+  const T = D.timeline.tracks;
+  const st = {id: (T.find(t => t.id === id) || T[0] || {}).id};
+  w.setTitle("Timeline");
+  const can = r => r.t === "m" ? !!byCode[r.id] && mCan(byCode[r.id]) : r.t === "d" ? !!DOC[r.id] && canDoc(DOC[r.id]) : author();
+  const name = r => r.t === "m" ? byCode[r.id].subject : r.t === "d" ? DOC[r.id].title : r.title;
+  const lab = r => r.t === "m" ? r.id : r.t === "d" ? "Doc " + r.id : "Scene " + r.id;
+  const view = tr => tr.groups.map(g => ({h: g.h, items: g.items.map(it => {
+    const ok = it.refs.filter(can), live = ok.length > 0;
+    if (!it.refs.length || it.refs.every(r => r.t === "s")) return author() ? {it, ok, live: true} : null;
+    return {it, ok, live};
+  }).filter(Boolean)})).filter(g => g.items.length);
+  const draw = () => {
+    const tr = T.find(t => t.id === st.id), vw = tr ? view(tr) : [];
+    const count = t => view(t).reduce((n, g) => n + g.items.length, 0);
+    w.body.innerHTML = '<div class="dr tl"><div class="dr-bar"><b class="nm">' + esc(tr ? tr.label : "Timeline") + '</b><span class="tl-bl">' + esc(tr ? tr.blurb : "") + "</span></div>" +
+      '<div class="dr-main"><div class="dr-tree"><h3>Tracks</h3>' +
+      T.map(t => '<button type="button" data-t="' + esc(t.id) + '" class="' + (t.id === st.id ? "on" : "") + '">' + ICON.folder + esc(t.label) + "<span class='n'>" + count(t) + "</span></button>").join("") + "</div>" +
+      '<div class="dr-files tl-list">' + (vw.length ? vw.map(g => '<h4 class="tl-h">' + esc(g.h) + "</h4>" + g.items.map(x => {
+        if (!x.live) return '<div class="tl-it dim"><div class="tl-t"></div><div class="tl-b"><div class="tl-x"><b>Access restricted</b> \u00b7 withheld at ' + esc(ROLE[S.role].label) + " clearance</div></div></div>";
+        return '<div class="tl-it"><div class="tl-t">' + esc(x.it.time || "") + '</div><div class="tl-b">' +
+          (x.it.text ? '<div class="tl-x">' + esc(x.it.text) + (x.it.sent ? ' <span class="tl-sent">(' + esc(x.it.sent) + ")</span>" : "") + "</div>" : "") +
+          x.it.refs.map(r => can(r)
+            ? (r.t === "s" ? '<div class="tl-ref sc"><b>' + esc(lab(r)) + "</b> " + esc(name(r)) + "</div>"
+              : '<a href="#" class="tl-ref" data-t="' + r.t + '" data-id="' + esc(r.id) + '"><b>' + esc(lab(r)) + "</b> " + esc(name(r)) + (!x.it.text && x.it.sent ? ' <span class="tl-sent">(' + esc(x.it.sent) + ")</span>" : "") + "</a>")
+            : r.t === "s" ? "" : '<div class="tl-ref lock"><b>' + esc(lab(r)) + "</b> restricted</div>").join("") +
+          "</div></div>";
+      }).join("")).join("") : '<div class="empty">Nothing on this track is open to this account.</div>') + "</div></div>" +
+      '<div class="dr-stat"><span>' + vw.reduce((n, g) => n + g.items.length, 0) + ' entries</span><span class="ok">Branch calendar: Day 0 is a Tuesday</span></div></div>';
+    const B = w.body;
+    B.querySelectorAll(".dr-tree button").forEach(b => b.onclick = () => { st.id = b.dataset.t; draw(); });
+    B.querySelectorAll("a.tl-ref").forEach(a => a.onclick = e => {
+      e.preventDefault();
+      if (a.dataset.t === "d") { openDoc(a.dataset.id); return; }
+      const m = byCode[a.dataset.id];
+      if (!m || !mCan(m)) { modal("Outside your clearance", "<p>Message " + esc(a.dataset.id) + " is not available to " + esc(ROLE[S.role].label) + ".</p>"); return; }
+      const mw = openApp("mail", a.dataset.id); if (mw && mw.api && mw.api.open) mw.api.open(a.dataset.id);
+    });
+  };
+  draw();
+  return {open: i => { if (T.some(t => t.id === i)) { st.id = i; draw(); } }};
 }
 
 /* ------------------------------------------------------- ICS Cloud Drive ---- */
