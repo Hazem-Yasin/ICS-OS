@@ -89,6 +89,8 @@ DOCS = {
     62: (OPEN, F_OPS),
     # 2.63 is sealed with 2.49: two readers (Research Team, Branch Manager). See SPECIAL.
     63: (BOARD, F_RES),
+    # 2.64 is not an ICS document: a sheet found in his quarters. No access level (as 2.35 and 2.39). See SPECIAL.
+    64: (BOARD, F_OUT),
 }
 # Files that sit outside the tier ladder: only the listed accounts may open them.
 SPECIAL = {
@@ -97,6 +99,7 @@ SPECIAL = {
     42: ["access", "all"],                       # "The three-tier system does not apply."
     49: ["research", "director", "access", "all"],  # SEALED. Readers: Research Team, Branch Manager, EOD.
     63: ["research", "director", "access", "all"],  # SEALED. EOD's pencil sheet; readers: Research Team, Branch Manager.
+    64: ["all"],                                 # "It does not exist in the ICS system." EOD's note in the drawer.
     51: ["research", "director", "access", "all"],  # Form GOV-PDR-002-BM. Readers: Research Team (authors), Branch Director, Board.
 }
 FOLDER_ORDER = [F_REC, F_HND, F_OPS, F_GOV, F_RES, F_BRD, F_OUT]
@@ -267,7 +270,7 @@ def collect_docs(known):
         st = p.stat()
         out.append({
             "no": "2.%02d" % no, "title": m.group(2).strip(), "folder": folder, "tier": tier,
-            "outside": no in (35, 39, 42, 49), "roles": roles, "segs": segs,
+            "outside": no in (35, 39, 42, 49, 64), "roles": roles, "segs": segs,
             "notes": link_docs(bm.render(note_lines, known)) if note_lines else "",
             "size": st.st_size, "mtime": datetime.datetime.fromtimestamp(st.st_mtime).strftime("%Y-%m-%d %H:%M"),
             "path": "canon/documents/" + p.name,

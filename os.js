@@ -1141,15 +1141,47 @@ function openDoc(no) {
 /* ---------------------------------------------------------------- Timeline ---- */
 /* [PROPOSAL] Story tracks from ICS-Writing/tools/timeline.json. Each entry is checked against
    the account's clearance: an entry the account cannot open at all shows as a withheld row.
-   Mail opens in this window with Previous / Next along the track; the tree opens to the entries of a track. */
+   Mail opens in this window with Previous / Next along the track; the tree opens to the entries of a track.
+   Two sections: Story tracks (timeline.json) and All files (every message by channel, every document by folder). */
 function timelineMount(w, id) {
-  const T = D.timeline.tracks, B = w.body;
-  const st = {id: (T.find(t => t.id === id) || T[0] || {}).id, open: {}, mode: "track", i: -1, code: "", q: ""};
-  if (st.id) st.open[st.id] = true;
+  const B = w.body;
   w.setTitle("Timeline");
   const can = r => r.t === "m" ? !!byCode[r.id] && mCan(byCode[r.id]) : r.t === "d" ? !!DOC[r.id] && canDoc(DOC[r.id]) : author();
   const name = r => r.t === "m" ? byCode[r.id].subject : r.t === "d" ? DOC[r.id].title : r.title;
   const lab = r => r.t === "m" ? r.id : r.t === "d" ? "Doc " + r.id : "Scene " + r.id;
+  const docText = d => d._t !== undefined ? d._t : (d._t = d.segs.filter(s => s.t <= level()).map(s => plain(s.h)).join(" ").toLowerCase());
+  /* Second section: every message the account can open, by channel, and every document, by folder.
+     Built here from the data already in the page; nothing extra is stored. */
+  const FILES = (() => {
+    const out = [], hf = [["delivered", "Delivered"], ["drafts", "Drafts and unsent"], ["held", "Held by CCN"], ["sealed", "Sealed"], ["notes", "Found notes"]];
+    Object.entries(D.series).forEach(([k, label]) => {
+      const ms = D.msgs.filter(m => m.series === k && mCan(m)).sort((a, b) => a.code < b.code ? -1 : 1);
+      const groups = hf.map(([f, h]) => ({h, items: ms.filter(m => m.folder === f).map(m => ({time: m.clock || "", text: "", sent: m.ds || null, refs: [{t: "m", id: m.code}]}))})).filter(g => g.items.length);
+      if (ms.length) out.push({id: "m-" + k, grp: "Messages", label, blurb: "Every " + label + " message this account can open, by where Hearth files it.", groups});
+    });
+    const num = no => no.split(".").map(Number);
+    const cmp = (a, b) => { const x = num(a.no), y = num(b.no); return x[0] - y[0] || x[1] - y[1]; };
+    D.folders.forEach((f, n) => {
+      const ds = docsFor(S.role).filter(d => d.folder === f).sort((a, b) => ((a.outside ? 9 : a.tier) - (b.outside ? 9 : b.tier)) || cmp(a, b));
+      const groups = [];
+      ds.forEach(d => { const h = TIERLBL(d), g = groups[groups.length - 1]; const it = {time: "", text: "", sent: null, refs: [{t: "d", id: d.no}]}; if (g && g.h === h) g.items.push(it); else groups.push({h, items: [it]}); });
+      if (ds.length) out.push({id: "f-" + n, grp: "Documents", label: f, blurb: "ICS Cloud \u203a " + f + ". Documents open in Folio.", groups});
+    });
+    return out;
+  })();
+  const SECS = {story: {label: "Story tracks", T: D.timeline.tracks}, files: {label: "All files", T: FILES}};
+  const allT = () => SECS.story.T.concat(SECS.files.T);
+  const tk = tid => allT().find(t => t.id === tid);
+  const secOf = tid => SECS.story.T.some(t => t.id === tid) ? "story" : "files";
+  let T = SECS.story.T;
+  const st = {sec: "story", mem: {}, id: (T.find(t => t.id === id) || T[0] || {}).id, open: {}, mode: "track", i: -1, code: "", q: ""};
+  if (st.id) st.open[st.id] = true;
+  const setSec = k => {
+    if (st.sec === k) return;
+    st.mem[st.sec] = st.id; st.sec = k; T = SECS[k].T;
+    st.id = (T.find(t => t.id === st.mem[k]) || T[0] || {}).id;
+    if (st.id) st.open[st.id] = true;
+  };
   const trk = () => T.find(t => t.id === st.id) || T[0];
   /* Every entry of a track, in order, with what this account may open. */
   const cache = {};
@@ -1171,7 +1203,7 @@ function timelineMount(w, id) {
   };
   const hay = x => x._h || (x._h = (x.h + " " + x.it.text + " " + x.ok.map(r => r.t === "m"
     ? r.id + " " + byCode[r.id].subject + " " + byCode[r.id].from + " " + byCode[r.id].txt
-    : r.t === "d" ? "doc " + r.id + " " + DOC[r.id].title : "scene " + r.id + " " + r.title).join(" ")).toLowerCase());
+    : r.t === "d" ? "doc " + r.id + " " + DOC[r.id].title + " " + docText(DOC[r.id]) : "scene " + r.id + " " + r.title).join(" ")).toLowerCase());
   const seq = () => flat(trk()).filter(x => x.mail);
   const pos = () => seq().findIndex(x => x.i === st.i);
   const reading = () => st.mode === "read" && !st.q.trim();
@@ -1229,8 +1261,10 @@ function timelineMount(w, id) {
 
   const drawBar = () => {
     const tr = trk(), rd = reading(), q = !!st.q.trim(), p = rd ? pos() : -1, s = rd ? seq() : [];
-    $("#tlname", B).textContent = q ? "Search" : st.mode === "all" ? "All tracks" : tr ? tr.label : "Timeline";
-    $("#tlbl", B).textContent = q ? "" : st.mode === "all" ? "Every track and its entries" : tr ? tr.blurb : "";
+    const fl = st.sec === "files", bl = q ? "" : st.mode === "all" ? (fl ? "Every channel and folder, with everything in it" : "Every track and its entries") : tr ? tr.blurb : "";
+    $("#tlname", B).textContent = q ? "Search" : st.mode === "all" ? (fl ? "All files" : "All tracks") : tr ? tr.label : "Timeline";
+    $("#tlbl", B).textContent = bl; $("#tlbl", B).title = bl;
+    $("#tlall", B).textContent = fl ? "Expand all" : "All tracks";
     $("#tlback", B).hidden = !rd;
     $("#tlprev", B).hidden = $("#tlnext", B).hidden = $("#tlpos", B).hidden = !rd;
     $("#tlprev", B).disabled = p <= 0;
@@ -1240,9 +1274,10 @@ function timelineMount(w, id) {
   };
   const drawTree = () => {
     const top = tree.scrollTop;
-    tree.innerHTML = "<h3>Tracks</h3>" + T.map(t => {
-      const f = flat(t), op = !!st.open[t.id];
-      let h = '<button type="button" class="tk' + (t.id === st.id && st.mode !== "all" ? " on" : "") + '" data-t="' + esc(t.id) + '" aria-expanded="' + op + '"><span class="car">' + (op ? "\u25BE" : "\u25B8") + "</span>" + esc(t.label) + "<span class='n'>" + f.length + "</span></button>";
+    let gp = null;
+    tree.innerHTML = '<div class="tl-tabs">' + Object.entries(SECS).map(([k, x]) => '<button type="button" class="tab' + (k === st.sec ? " on" : "") + '" data-sec="' + k + '">' + esc(x.label) + "</button>").join("") + "</div>" + T.map(t => {
+      const f = flat(t), op = !!st.open[t.id], gh = (t.grp || "Tracks") !== gp ? "<h3>" + esc(t.grp || "Tracks") + "</h3>" : ""; gp = t.grp || "Tracks";
+      let h = gh + '<button type="button" class="tk' + (t.id === st.id && st.mode !== "all" ? " on" : "") + '" data-t="' + esc(t.id) + '" aria-expanded="' + op + '"><span class="car">' + (op ? "\u25BE" : "\u25B8") + "</span>" + esc(t.label) + "<span class='n'>" + f.length + "</span></button>";
       if (op) {
         let last = null;
         h += '<div class="tk-sub">' + f.map(x => {
@@ -1259,8 +1294,8 @@ function timelineMount(w, id) {
     const tr = trk(), ts = terms();
     pane.classList.toggle("tl-read", reading());
     if (ts.length) {
-      const res = T.map(t => ({t, hits: flat(t).filter(x => x.live && ts.every(k => hay(x).includes(k)))})).filter(r => r.hits.length);
-      pane.innerHTML = res.length ? res.map(r => '<h4 class="tl-h">' + esc(r.t.label) + " \u00b7 " + r.hits.length + "</h4>" + r.hits.map(x => row(x, r.t.id, true)).join("")).join("")
+      const res = allT().map(t => ({t, hits: flat(t).filter(x => x.live && ts.every(k => hay(x).includes(k)))})).filter(r => r.hits.length);
+      pane.innerHTML = res.length ? res.map(r => '<h4 class="tl-h">' + esc((r.t.grp ? r.t.grp + " \u00b7 " : "") + r.t.label) + " \u00b7 " + r.hits.length + "</h4>" + r.hits.map(x => row(x, r.t.id, true)).join("")).join("")
         : '<div class="empty">No entry matches \u201c' + esc(st.q.trim()) + "\u201d.</div>";
       pane.scrollTop = 0; return;
     }
@@ -1289,7 +1324,7 @@ function timelineMount(w, id) {
   };
   const drawStat = () => {
     const tr = trk(), q = st.q.trim();
-    $("#tlstat", B).innerHTML = "<span>" + (q ? pane.querySelectorAll(".tl-it").length + " matches" : st.mode === "all" ? T.reduce((n, t) => n + flat(t).length, 0) + " entries in " + T.length + " tracks" : (tr ? flat(tr).length : 0) + " entries") + '</span><span class="ok">Branch calendar: Day 0 is a Tuesday</span>';
+    $("#tlstat", B).innerHTML = "<span>" + (q ? pane.querySelectorAll(".tl-it").length + " matches" : st.mode === "all" ? T.reduce((n, t) => n + flat(t).length, 0) + " entries in " + T.length + (st.sec === "files" ? " groups" : " tracks") : (tr ? flat(tr).length : 0) + " entries") + '</span><span class="ok">Branch calendar: Day 0 is a Tuesday</span>';
   };
   const draw = () => { drawBar(); drawTree(); drawPane(); drawStat(); };
   const reveal = (tid, i) => {
@@ -1299,17 +1334,17 @@ function timelineMount(w, id) {
   const clearQ = () => { st.q = ""; qi.value = ""; };
 
   const readMail = (tid, i, code) => {
-    clearQ(); st.id = tid; st.open[tid] = true; st.mode = "read"; st.code = code;
-    const s = flat(T.find(t => t.id === tid)).filter(x => x.mail);
+    clearQ(); setSec(secOf(tid)); st.id = tid; st.open[tid] = true; st.mode = "read"; st.code = code;
+    const s = flat(tk(tid)).filter(x => x.mail);
     const hit = i >= 0 ? s.find(x => x.i === i) : s.find(x => x.mail.id === code);
     st.i = hit ? hit.i : -1;
     draw();
     const on = tree.querySelector("button.ent.on"); if (on) on.scrollIntoView({block: "nearest"});
   };
   const openEntry = (tid, i) => {
-    const x = flat(T.find(t => t.id === tid))[i]; if (!x) return;
+    const x = flat(tk(tid))[i]; if (!x) return;
     if (x.mail) { readMail(tid, i, x.mail.id); return; }
-    clearQ(); st.id = tid; st.open[tid] = true; st.mode = "track"; st.i = i;
+    clearQ(); setSec(secOf(tid)); st.id = tid; st.open[tid] = true; st.mode = "track"; st.i = i;
     draw(); reveal(tid, i);
     const d = x.ok.find(r => r.t === "d"); if (d) openDoc(d.id);
   };
@@ -1321,6 +1356,7 @@ function timelineMount(w, id) {
 
   tree.onclick = e => {
     const b = e.target.closest("button"); if (!b) return;
+    if (b.classList.contains("tab")) { clearQ(); setSec(b.dataset.sec); st.mode = "track"; st.i = -1; draw(); return; }
     if (b.classList.contains("ent")) { openEntry(b.dataset.tid, +b.dataset.i); return; }
     const t = b.dataset.t, was = st.open[t] && st.id === t && st.mode !== "all";
     st.open[t] = !was; clearQ();
@@ -1360,7 +1396,7 @@ function timelineMount(w, id) {
     else if (e.key === "Escape") back();
   });
   draw();
-  return {open: i => { if (T.some(t => t.id === i)) { clearQ(); st.id = i; st.open[i] = true; st.mode = "track"; draw(); } }};
+  return {open: i => { if (tk(i)) { clearQ(); setSec(secOf(i)); st.id = i; st.open[i] = true; st.mode = "track"; draw(); } }};
 }
 
 /* ------------------------------------------------------- ICS Cloud Drive ---- */

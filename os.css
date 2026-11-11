@@ -1374,3 +1374,16 @@ a.tl-ref:hover{background:var(--hover)}
 .tl-split::after{content:"";position:absolute;inset:0 -4px;}
 .tl-split:hover,.tl-split.drag,.tl-split:focus-visible{background:var(--gold)}
 @container (max-width:640px){ .tl .dr-main{grid-template-columns:1fr} .tl-split{display:none} }
+
+/* Timeline: long text wraps, so the whole title can be read in the tree and the list */
+.dr-tree button.ent{align-items:flex-start;text-align:left}
+.dr-tree button.ent .l{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.3}
+.dr-tree button.ent .t{padding-top:1px}
+.dr-tree button.tk{text-align:left;line-height:1.3}
+.tk-g{overflow-wrap:anywhere}
+.tl-ref{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.tl-list button.tl-go{align-items:flex-start;text-align:left}
+.tl-list button.tl-go .l{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+/* Timeline: the two sections */
+.tl-tabs{display:flex;gap:4px;margin:0 0 4px;position:sticky;top:-8px;z-index:2;padding:8px 0 4px;background:inherit}
+.dr-tree .tl-tabs button{flex:1;width:auto;justify-content:center;text-align:center;padding:4px 6px;font-size:11.5px}
