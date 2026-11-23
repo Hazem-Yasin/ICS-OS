@@ -91,6 +91,8 @@ DOCS = {
     63: (BOARD, F_RES),
     # 2.64 is not an ICS document: a sheet found in his quarters. No access level (as 2.35 and 2.39). See SPECIAL.
     64: (BOARD, F_OUT),
+    # 2.65 is Supplement H to 2.18, shelved on Level 5 beside it: PTKW, Research and Assessment.
+    65: (PTKW, F_RES),
 }
 # Files that sit outside the tier ladder: only the listed accounts may open them.
 SPECIAL = {
